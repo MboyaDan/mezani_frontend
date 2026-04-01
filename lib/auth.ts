@@ -49,4 +49,3 @@ export function isAuthenticated(): boolean {
   if (!token) return false
   return !isTokenExpired(token)
 }
-e

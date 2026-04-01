@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-const protectedRoutes = ["/dashboard", "/kitchen", "/waiter"]
-const authRoutes = ["/login", "/register"]
+const protectedRoutes = ["/dashboard", "/kitchen", "/waiter", "/orders", "/menu", "/settings"]
+const authRoutes = ["/login", "/register", "/forgot-password", "/reset-password"]
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {  
   const { pathname } = req.nextUrl
 
-  // Check localStorage isn't available in middleware
-  // Use a cookie set on login instead
   const token = req.cookies.get("access_token")?.value
 
   const isProtected = protectedRoutes.some((r) => pathname.startsWith(r))

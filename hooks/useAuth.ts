@@ -1,10 +1,10 @@
 "use client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import API from "@/lib/api"
+import API from "@/lib/client"
 import { saveTokens, clearTokens, getCurrentUser } from "@/lib/auth"
 import { TokenPair } from "@/types"
-
+import { getErrorMessage } from "@/lib/api/error"// adjust path to wherever you placed it
 export function useAuth() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -16,7 +16,7 @@ export function useAuth() {
     try {
       const res = await API.post<TokenPair>("/auth/login", { email, password })
       saveTokens(res.data)
-      
+
       // Redirect based on role
       const user = getCurrentUser()
       switch (user?.role) {
@@ -33,8 +33,8 @@ export function useAuth() {
         default:
           router.push("/dashboard")
       }
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Invalid credentials")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Invalid credentials"))
     } finally {
       setLoading(false)
     }
@@ -67,8 +67,8 @@ export function useAuth() {
       })
       saveTokens(res.data)
       router.push("/dashboard")
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Registration failed")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Registration failed"))
     } finally {
       setLoading(false)
     }

@@ -1,5 +1,5 @@
+//backened + shared types for API responses and JWT payloads
 export type Role = "owner" | "manager" | "waiter" | "kitchen" | "cashier"
-
 export interface TokenPair {
   access_token: string
   refresh_token: string
@@ -45,15 +45,15 @@ export interface CustomerSession {
 }
 
 export interface MenuItem {
-  ID: string
-  CategoryID: string
-  Name: string
-  Description: string
-  Price: number
-  Available: boolean
-  SoldOut: boolean
-  IsSpecial: boolean
-  CreatedAt: string
+  id: string
+  category_id: string
+  name: string
+  description: string
+  price: number
+  available: boolean
+  sold_out: boolean
+  is_special: boolean
+  created_at: string
 }
 
 export interface MenuCategory {
