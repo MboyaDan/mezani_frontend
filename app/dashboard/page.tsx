@@ -1,4 +1,3 @@
-import { getCurrentUser } from "@/lib/auth"
 import { Topbar } from "@/components/layout/topbar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
@@ -65,8 +64,6 @@ const statusStyles: Record<string, string> = {
 }
 
 export default async function DashboardPage() {
-  const user = getCurrentUser() // server-side, no useEffect, no hydration mismatch
-
   return (
     <div className="flex flex-col flex-1 bg-[#F8FAFC]">
       <Topbar title="Overview" />

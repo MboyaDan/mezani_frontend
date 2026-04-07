@@ -6,9 +6,14 @@ export const tablesAPI = {
     const res = await API.get(`/owner/branches/${branchId}/tables`)
     return res.data as Table[]
   },
-
+  getWithSessions: async (branchId: string) => {
+    const res = await API.get(`/tables?branch_id=${branchId}`)
+    return res.data
+  },
   create: async (branchId: string, tableNumber: number) => {
-    const res = await API.post(`/owner/branches/${branchId}/tables`, { table_number: tableNumber })
+    const res = await API.post(`/owner/branches/${branchId}/tables`, {
+      table_number: tableNumber,
+    })
     return res.data as Table
   },
 }
@@ -21,12 +26,12 @@ export const sessionsAPI = {
     })
     return res.data as TableSession
   },
-
   close: async (sessionId: string) => {
     await API.post(`/table-session/${sessionId}/close`)
   },
-
   heartbeat: async (sessionId: string) => {
-    await API.post("/table-session/heartbeat", { session_id: sessionId })
+    await API.post("/table-session/heartbeat", {
+      session_id: sessionId,
+    })
   },
 }
