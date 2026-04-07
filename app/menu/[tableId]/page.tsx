@@ -193,8 +193,8 @@ function PhoneInput({ value, onChange }: { value: string; onChange: (value: stri
           {error}
         </p>
       )}
-      <p className="text-xs text-zinc-400">We'll text you when your order is ready</p>
-    </div>
+<p className="text-xs text-zinc-400">We’ll text you when your order is ready</p>    
+  </div>
   )
 }
 
@@ -228,12 +228,16 @@ export default function MenuPage({
   // ── Cart helpers ──
   const totalItems = cart.reduce((s, i) => s + i.qty, 0)
   const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0)
+  
+  // ── Table number state ──
+  const [tableNumber, setTableNumber] = useState<number | null>(null)
+
   const getQty = (id: string) => cart.find((i) => i.id === id)?.qty ?? 0
 
   const addItem = (item: MenuItem) => {
     setCart((prev) => {
       const existing = prev.find((i) => i.id === item.id)
-      if (existing) return prev.map((i) => i.id === item.id? { ...i, qty: i.qty + 1 } : i)
+      if (existing) return prev.map((i) => i.id === item.id ? { ...i, qty: i.qty + 1 } : i)
       return [...prev, { id: item.id, name: item.name, price: item.price, qty: 1 }]
     })
   }
@@ -247,22 +251,33 @@ export default function MenuPage({
     })
   }
 
-  // ── Load menu ──
-  const loadMenu = async (sessionId: string) => {
-    setMenuLoading(true)
-    try {
-      const data = await menuAPI.getFull(sessionId)
-      setMenuData(data)
-      if (data.length > 0) {
-        setActiveCategory(data[0].category_id)
-      }
-    } catch {
-      setErrorMessage("Could not load menu. Please ask your waiter for assistance.")
-      setPageState("error")
-    } finally {
-      setMenuLoading(false)
-    }
+  // ── Fetch table number ──
+const fetchTableNumber = async (sessionId: string) => {
+  try {
+    const data = await menuAPI.getSessionInfo(sessionId)
+    setTableNumber(data.table_number)
+  } catch (err) {
+    console.error("Failed to fetch table number:", err)
+    // Non-critical — falls back to showing truncated ID
   }
+}
+
+  // ── Load menu ──
+const loadMenu = async (sessionId: string) => {
+  setMenuLoading(true)
+  try {
+    const data = await menuAPI.getBySession(sessionId)  
+    setMenuData(data)
+    if (data.length > 0) {
+      setActiveCategory(data[0].category_id)
+    }
+  } catch {
+    setErrorMessage("Could not load menu. Please ask your waiter for assistance.")
+    setPageState("error")
+  } finally {
+    setMenuLoading(false)
+  }
+}
 
   // ── Join table ──
   const handleJoin = async (name: string) => {
@@ -271,6 +286,9 @@ export default function MenuPage({
     try {
       const customerSession = await customerAPI.join(tableId, name)
       setCustomer(customerSession)
+
+      // Fetch table number after successful join
+await fetchTableNumber(tableId)
 
       const newCart = await cartAPI.create(tableId, customerSession.ID)
       setCartId(newCart.ID)
@@ -373,7 +391,7 @@ export default function MenuPage({
           <div>
             <h1 className="text-lg font-bold text-zinc-900">Menu</h1>
             <p className="text-sm text-zinc-400 mt-0.5">
-              Hi {customer?.Name} · Table {tableId}
+              Hi {customer?.Name} · Table {tableNumber ?? tableId.slice(0, 8) + "..."}
             </p>
           </div>
           <button

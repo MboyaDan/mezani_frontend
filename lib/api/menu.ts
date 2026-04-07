@@ -7,9 +7,10 @@ export const menuAPI = {
     const res = await API.get(`/menus/branch/${branchId}`)
     return res.data as Menu[]
   },
-  getBySession: async (sessionId: string) => {
-    const res = await API.get(`/session/${sessionId}/menu`)
-    return res.data as FullMenuCategory[]
+
+getBySession: async (sessionId: string) => {
+  const res = await API.get(`/table-sessions/${sessionId}/menu`)
+  return res.data as FullMenuCategory[]
 },
 
   getFull: async (menuId: string) => {
@@ -51,5 +52,11 @@ export const menuAPI = {
 
   setAvailable: async (itemId: string) => {
     await API.patch(`/menu/items/${itemId}/available`)
+    
   },
+
+  getSessionInfo: async (sessionId: string) => {
+  const res = await API.get(`/table-sessions/${sessionId}/info`)
+  return res.data as { table_number: number }
+},
 }

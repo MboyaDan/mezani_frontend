@@ -69,4 +69,9 @@ export const ordersAPI = {
     const res = await API.get(`/orders/session/${sessionId}`)
     return res.data as Order[]
   },
+
+  getRecent: async (branchId: string) => {
+    const res = await API.get(`/orders/recent?branch_id=${branchId}`)
+    return res.data
+},
 }
