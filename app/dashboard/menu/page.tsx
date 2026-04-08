@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { Plus, Search, Pencil, Loader2, RefreshCw, AlertCircle } from "lucide-react"
 import { menuAPI } from "@/lib/api/menu"
 import { useBranch } from "@/hooks/useBranch"
+import { useToast } from "@/hooks/useToast"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ type ApiError = {
 
 export default function MenuPage() {
   const { branchId } = useBranch()
+  const { toasts, toast } = useToast()
 
   const [categories, setCategories]         = useState<Category[]>([])
   const [loading, setLoading]               = useState(true)
@@ -76,10 +78,18 @@ export default function MenuPage() {
   const [itemFieldErrors, setItemFieldErrors]         = useState<ItemFieldErrors>({})
   const [categoryFieldErrors, setCategoryFieldErrors] = useState<CategoryFieldErrors>({})
 
+  // dialog-level server errors
+  const [itemDialogError, setItemDialogError]         = useState<string | null>(null)
+  const [categoryDialogError, setCategoryDialogError] = useState<string | null>(null)
+
   // ── Derived ────────────────────────────────────────────────────────────────
 
   const flatItems: FlatItem[] = categories.flatMap((cat) =>
-    (cat.items ?? []).map((item) => ({ ...item, categoryName: cat.category_name ?? "" }))
+    (cat.items ?? []).map((item) => ({
+      ...item,
+      id: item.id ?? `${cat.category_id}-${item.name}`,
+      categoryName: cat.category_name ?? "",
+    }))
   )
 
   const filtered = flatItems.filter((item) => {
@@ -111,7 +121,12 @@ export default function MenuPage() {
     }
   }, [branchId])
 
-  useEffect(() => { fetchMenu() }, [fetchMenu])
+  useEffect(() => {
+    setCategories([])
+    setMenuId(null)
+    setLoading(true)
+    fetchMenu()
+  }, [fetchMenu])
 
   // ── Create menu ────────────────────────────────────────────────────────────
 
@@ -144,16 +159,28 @@ export default function MenuPage() {
 
   const handleAddCategory = async () => {
     if (!menuId || !validateCategory()) return
+    setCategoryDialogError(null)
     setActionLoading(true)
+
+    // Capture before any state changes
+    const savedName  = categoryForm.name
+    const savedOrder = Number(categoryForm.order)
+
     try {
-      await menuAPI.createCategory(menuId, categoryForm.name, Number(categoryForm.order))
-      await fetchMenu()
+      const created = await menuAPI.createCategory(menuId, savedName, savedOrder)
+      setCategories((prev) => [...prev, {
+        category_id:   created.ID,
+        category_name: created.Name,
+        display_order: created.DisplayOrder,
+        items: [],
+      }])
       setShowCategoryDialog(false)
       setCategoryForm({ name: "", order: "1" })
       setCategoryFieldErrors({})
-    } catch (err: unknown) {
-      const apiErr = err as ApiError
-      setError(apiErr?.response?.data?.error ?? "Failed to add category")
+      toast("success", "Category added", `"${savedName}" is now available`)
+    } catch {
+      setCategoryDialogError("Server error — please try again")
+      toast("error", "Failed to add category", "Server error — please try again")
     } finally {
       setActionLoading(false)
     }
@@ -178,71 +205,109 @@ export default function MenuPage() {
 
   const handleSaveItem = async () => {
     if (actionLoading || !validateItem()) return
+    setItemDialogError(null)
     setActionLoading(true)
 
     try {
       if (editItem) {
-        // edit — only price update is supported
-        await menuAPI.updatePrice(editItem.id, Number(form.price))
+        // ── Edit: capture ALL values before any state mutation ──────────────
+        const itemId   = editItem.id
+        const itemName = editItem.name
+        const oldPrice = editItem.price
+        const newPrice = Number(form.price)
+
+        // Optimistic update
         setCategories((prev) =>
           prev.map((cat) => ({
             ...cat,
             items: cat.items.map((i) =>
-              i.id === editItem.id ? { ...i, price: Number(form.price) } : i
+              i.id === itemId ? { ...i, price: newPrice } : i
             ),
           }))
         )
-      } else {
-        // create with optimistic UI
-        const tempId = crypto.randomUUID()
-        const optimistic: MenuItem = {
-          id: tempId,
-          name: form.name,
-          description: form.description,
-          category_id: form.categoryId,
-          price: Number(form.price),
-          available: true,
-          sold_out: false,
-          is_special: false,
+
+        // Close dialog and reset form immediately
+        setShowAddDialog(false)
+        setEditItem(null)
+        setForm({ name: "", description: "", categoryId: "", price: "" })
+        setItemFieldErrors({})
+
+        try {
+          await menuAPI.updatePrice(itemId, newPrice)
+          toast("success", "Item updated", `${itemName} → KES ${newPrice.toLocaleString()}`)
+        } catch {
+          // Rollback using captured locals — form/editItem are already reset
+          setCategories((prev) =>
+            prev.map((cat) => ({
+              ...cat,
+              items: cat.items.map((i) =>
+                i.id === itemId ? { ...i, price: oldPrice } : i
+              ),
+            }))
+          )
+          toast("error", "Failed to update item", "Server error — please try again")
         }
 
+      } else {
+        // ── Create: capture ALL values before any state mutation ────────────
+        const savedName        = form.name
+        const savedDescription = form.description
+        const savedCategoryId  = form.categoryId
+        const savedPrice       = Number(form.price)
+
+        const tempId = `temp-item-${Date.now()}`
+        const optimistic: MenuItem = {
+          id:          tempId,
+          name:        savedName,
+          description: savedDescription,
+          category_id: savedCategoryId,
+          price:       savedPrice,
+          available:   true,
+          sold_out:    false,
+          is_special:  false,
+        }
+
+        // Optimistic update
         setCategories((prev) =>
           prev.map((cat) =>
-            cat.category_id === form.categoryId
+            cat.category_id === savedCategoryId
               ? { ...cat, items: [...(cat.items ?? []), optimistic] }
               : cat
           )
         )
 
+        // Close dialog and reset form immediately
+        setShowAddDialog(false)
+        setForm({ name: "", description: "", categoryId: "", price: "" })
+        setItemFieldErrors({})
+
         try {
+          // Use only captured locals — form state is already reset at this point
           const created = await menuAPI.createItem(
-            form.categoryId, form.name, form.description, Number(form.price)
+            savedCategoryId,
+            savedName,
+            savedDescription,
+            savedPrice,
           )
+          // Replace temp item with real server data
           setCategories((prev) =>
             prev.map((cat) => ({
               ...cat,
               items: cat.items.map((i) => (i.id === tempId ? created : i)),
             }))
           )
+          toast("success", "Item added to menu", `${savedName} · KES ${savedPrice.toLocaleString()}`)
         } catch {
-          // rollback
+          // Rollback
           setCategories((prev) =>
             prev.map((cat) => ({
               ...cat,
               items: cat.items.filter((i) => i.id !== tempId),
             }))
           )
-          throw new Error("Failed to create item")
+          toast("error", "Failed to add item", "Server error — please try again")
         }
       }
-
-      setShowAddDialog(false)
-      setEditItem(null)
-      setForm({ name: "", description: "", categoryId: "", price: "" })
-      setItemFieldErrors({})
-    } catch (err: unknown) {
-      const apiErr = err as ApiError
-      setError(apiErr?.response?.data?.error ?? "Failed to save item")
     } finally {
       setActionLoading(false)
     }
@@ -251,23 +316,22 @@ export default function MenuPage() {
   const handleEdit = (item: FlatItem) => {
     setEditItem(item)
     setItemFieldErrors({})
+    setItemDialogError(null)
     setForm({
-      name: item.name ?? "",
+      name:        item.name ?? "",
       description: item.description ?? "",
-      categoryId: item.category_id ?? "",
-      price: String(item.price ?? ""),
+      categoryId:  item.category_id ?? "",
+      price:       String(item.price ?? ""),
     })
     setShowAddDialog(true)
   }
 
-  // ── Toggle sold-out (optimistic, constraint-safe) ──────────────────────────
+  // ── Toggle sold-out (optimistic) ───────────────────────────────────────────
 
   const handleToggleSoldOut = async (item: FlatItem) => {
     if (actionLoading) return
     const newSoldOut = !item.sold_out
 
-    // Optimistic update — when marking sold out, also flip available to false
-    // to respect DB check constraint: NOT (available=true AND sold_out=true)
     setCategories((prev) =>
       prev.map((cat) => ({
         ...cat,
@@ -282,11 +346,12 @@ export default function MenuPage() {
     try {
       if (newSoldOut) {
         await menuAPI.setSoldOut(item.id)
+        toast("success", "Marked as sold out", item.name)
       } else {
         await menuAPI.setAvailable(item.id)
+        toast("success", "Marked as available", item.name)
       }
     } catch {
-      // rollback to original state
       setCategories((prev) =>
         prev.map((cat) => ({
           ...cat,
@@ -297,7 +362,7 @@ export default function MenuPage() {
           ),
         }))
       )
-      setError("Failed to update item status")
+      toast("error", "Failed to update item status", "Server error — please try again")
     }
   }
 
@@ -351,7 +416,11 @@ export default function MenuPage() {
             </button>
             <Button
               variant="outline"
-              onClick={() => { setCategoryFieldErrors({}); setShowCategoryDialog(true) }}
+              onClick={() => {
+                setCategoryFieldErrors({})
+                setCategoryDialogError(null)
+                setShowCategoryDialog(true)
+              }}
               className="rounded-xl border-zinc-200"
             >
               Add Category
@@ -360,6 +429,7 @@ export default function MenuPage() {
               onClick={() => {
                 setEditItem(null)
                 setItemFieldErrors({})
+                setItemDialogError(null)
                 setForm({ name: "", description: "", categoryId: categories[0]?.category_id ?? "", price: "" })
                 setShowAddDialog(true)
               }}
@@ -371,7 +441,7 @@ export default function MenuPage() {
           </div>
         </div>
 
-        {/* Error banner */}
+        {/* Page-level error banner */}
         {error && (
           <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
@@ -381,9 +451,9 @@ export default function MenuPage() {
 
         {/* Category filter pills */}
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {categoryNames.map((cat) => (
+          {categoryNames.map((cat, index) => (
             <button
-              key={cat}
+              key={`pill-${index}-${cat}`}
               onClick={() => setActiveCategory(cat)}
               className={cn(
                 "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
@@ -400,11 +470,11 @@ export default function MenuPage() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Total Items",  value: flatItems.length },
-            { label: "Available",    value: flatItems.filter((i) => i.available && !i.sold_out).length },
-            { label: "Sold Out",     value: flatItems.filter((i) => i.sold_out).length },
+            { label: "Total Items", value: flatItems.length },
+            { label: "Available",   value: flatItems.filter((i) => i.available && !i.sold_out).length },
+            { label: "Sold Out",    value: flatItems.filter((i) => i.sold_out).length },
           ].map((stat) => (
-            <Card key={stat.label} className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
+            <Card key={`stat-${stat.label}`} className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
               <CardContent className="p-4">
                 <p className="text-2xl font-bold text-zinc-900">{stat.value}</p>
                 <p className="text-sm text-zinc-500 mt-0.5">{stat.label}</p>
@@ -446,7 +516,10 @@ export default function MenuPage() {
                 </thead>
                 <tbody>
                   {filtered.map((item) => (
-                    <tr key={item.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors">
+                    <tr
+                      key={`item-${item.category_id}-${item.id}`}
+                      className="border-b border-zinc-50 hover:bg-zinc-50/50 transition-colors"
+                    >
                       <td className="px-5 py-4">
                         <p className="text-sm font-semibold text-zinc-900">{item.name}</p>
                         <p className="text-xs text-zinc-400 mt-0.5 max-w-xs truncate">{item.description}</p>
@@ -494,16 +567,25 @@ export default function MenuPage() {
       </div>
 
       {/* ── Add / Edit Item Dialog ── */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <Dialog open={showAddDialog} onOpenChange={(open) => {
+        setShowAddDialog(open)
+        if (!open) { setItemFieldErrors({}); setItemDialogError(null) }
+      }}>
         <DialogContent className="rounded-2xl max-w-md">
           <DialogHeader>
             <DialogTitle>{editItem ? "Edit Item" : "Add Menu Item"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
 
+            {itemDialogError && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                <p className="text-sm text-red-600">{itemDialogError}</p>
+              </div>
+            )}
+
             {!editItem && (
               <>
-                {/* Name */}
                 <div className="space-y-1.5">
                   <Label>Item Name</Label>
                   <Input
@@ -522,7 +604,6 @@ export default function MenuPage() {
                   )}
                 </div>
 
-                {/* Description */}
                 <div className="space-y-1.5">
                   <Label>Description <span className="text-zinc-400 font-normal">(optional)</span></Label>
                   <Input
@@ -533,7 +614,6 @@ export default function MenuPage() {
                   />
                 </div>
 
-                {/* Category */}
                 <div className="space-y-1.5">
                   <Label>Category</Label>
                   <select
@@ -549,7 +629,7 @@ export default function MenuPage() {
                   >
                     <option value="">Select a category</option>
                     {categories.map((c) => (
-                      <option key={c.category_id} value={c.category_id}>{c.category_name}</option>
+                      <option key={`opt-${c.category_id}`} value={c.category_id}>{c.category_name}</option>
                     ))}
                   </select>
                   {itemFieldErrors.categoryId && (
@@ -561,11 +641,11 @@ export default function MenuPage() {
               </>
             )}
 
-            {/* Price */}
             <div className="space-y-1.5">
               <Label>Price (KES)</Label>
               <Input
                 type="number"
+                min="1"
                 placeholder="0"
                 value={form.price}
                 onChange={(e) => {
@@ -585,7 +665,7 @@ export default function MenuPage() {
               <Button
                 variant="outline"
                 className="flex-1 rounded-xl"
-                onClick={() => { setShowAddDialog(false); setItemFieldErrors({}) }}
+                onClick={() => { setShowAddDialog(false); setItemFieldErrors({}); setItemDialogError(null) }}
                 disabled={actionLoading}
               >
                 Cancel
@@ -606,12 +686,22 @@ export default function MenuPage() {
       </Dialog>
 
       {/* ── Add Category Dialog ── */}
-      <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
+      <Dialog open={showCategoryDialog} onOpenChange={(open) => {
+        setShowCategoryDialog(open)
+        if (!open) { setCategoryFieldErrors({}); setCategoryDialogError(null) }
+      }}>
         <DialogContent className="rounded-2xl max-w-sm">
           <DialogHeader>
             <DialogTitle>Add Category</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
+
+            {categoryDialogError && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                <p className="text-sm text-red-600">{categoryDialogError}</p>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label>Category Name</Label>
@@ -635,6 +725,7 @@ export default function MenuPage() {
               <Label>Display Order</Label>
               <Input
                 type="number"
+                min="1"
                 value={categoryForm.order}
                 onChange={(e) => {
                   setCategoryForm({ ...categoryForm, order: e.target.value })
@@ -653,7 +744,7 @@ export default function MenuPage() {
               <Button
                 variant="outline"
                 className="flex-1 rounded-xl"
-                onClick={() => { setShowCategoryDialog(false); setCategoryFieldErrors({}) }}
+                onClick={() => { setShowCategoryDialog(false); setCategoryFieldErrors({}); setCategoryDialogError(null) }}
                 disabled={actionLoading}
               >
                 Cancel
@@ -669,6 +760,29 @@ export default function MenuPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Toast notifications ── */}
+      <div className="fixed bottom-5 right-5 z-[200] flex flex-col gap-2 w-80">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className={cn(
+              "flex items-start gap-3 px-4 py-3 rounded-xl border text-sm shadow-sm animate-in slide-in-from-bottom-2",
+              t.type === "success" && "bg-emerald-50 border-emerald-200 text-emerald-800",
+              t.type === "error"   && "bg-red-50 border-red-200 text-red-800",
+              t.type === "warning" && "bg-amber-50 border-amber-200 text-amber-800",
+            )}
+          >
+            <span className="mt-0.5 shrink-0 font-semibold">
+              {t.type === "success" ? "✓" : t.type === "warning" ? "⚠" : "✕"}
+            </span>
+            <div>
+              <p className="font-semibold">{t.message}</p>
+              {t.sub && <p className="text-xs opacity-75 mt-0.5">{t.sub}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
