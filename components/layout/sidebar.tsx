@@ -1,10 +1,12 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { getCurrentUser } from "@/lib/auth"
 import { JWTPayload } from "@/types"
+import { BranchSelector } from "@/components/branch/branch-selector"
+import { useBranch } from "@/hooks/useBranch"
 import {
   LayoutDashboard,
   UtensilsCrossed,
@@ -33,18 +35,15 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname()
   const { logout } = useAuth()
+  const { branchId, selectBranch } = useBranch()
 
-  // Lazy initializers — run once on mount, no effect needed, no cascading renders
-  const [user] = useState<JWTPayload | null>(() => {
-    if (typeof window === "undefined") return null
-    return getCurrentUser()
-  })
+  const [mounted, setMounted] = useState(false)
+  const user: JWTPayload | null = mounted ? getCurrentUser() : null
 
-  const [mounted] = useState<boolean>(() => {
-    return typeof window !== "undefined"
-  })
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
-  // Render empty shell on server — prevents hydration mismatch
   if (!mounted) {
     return (
       <aside className="flex flex-col w-64 min-h-screen bg-gradient-to-b from-[#0f172a] to-[#111827]" />
@@ -92,6 +91,19 @@ export function Sidebar() {
           )
         })}
       </nav>
+
+      {(user?.role === "owner" || user?.role === "manager") && (
+        <div className="px-3 pb-2 border-t border-white/10 pt-3">
+          <p className="text-xs text-zinc-500 px-3 mb-1">Current Branch</p>
+          <BranchSelector
+            currentBranchId={branchId}
+            onSelect={(id, name) => {
+              selectBranch(id, name)
+              window.location.reload()
+            }}
+          />
+        </div>
+      )}
 
       {/* Kitchen shortcut */}
       <div className="px-3 pb-2">

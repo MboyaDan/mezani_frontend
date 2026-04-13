@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation"
 import API from "@/lib/client"
 import { saveTokens, clearTokens, getCurrentUser } from "@/lib/auth"
 import { TokenPair } from "@/types"
-import { getErrorMessage } from "@/lib/api/error"// adjust path to wherever you placed it
+import { getErrorMessage } from "@/lib/api/error"
+
 export function useAuth() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,7 +18,10 @@ export function useAuth() {
       const res = await API.post<TokenPair>("/auth/login", { email, password })
       saveTokens(res.data)
 
-      // Redirect based on role
+      // Clear stale branch from any previous session/tenant
+      localStorage.removeItem("branch_id")
+      localStorage.removeItem("branch_name")
+
       const user = getCurrentUser()
       switch (user?.role) {
         case "owner":
@@ -48,6 +52,8 @@ export function useAuth() {
       }
     } finally {
       clearTokens()
+      localStorage.removeItem("branch_id")
+      localStorage.removeItem("branch_name")
       router.push("/login")
     }
   }
@@ -66,6 +72,8 @@ export function useAuth() {
         password,
       })
       saveTokens(res.data)
+      localStorage.removeItem("branch_id")
+      localStorage.removeItem("branch_name")
       router.push("/dashboard")
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Registration failed"))

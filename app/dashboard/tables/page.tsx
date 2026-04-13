@@ -234,7 +234,7 @@ export default function TablesPage() {
     if (!branchId) return
     try {
       setError(null)
-      const data = await tablesAPI.getWithSessions(branchId) as RawTable[]
+    const data = await tablesAPI.list(branchId) as unknown as RawTable[]
       setTables(data.map((t) => ({
         id: t.id,
         tableNumber: t.table_number,

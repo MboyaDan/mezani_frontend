@@ -1,20 +1,17 @@
 import API from "@/lib/client"
-import { Table, TableSession } from "@/types"
+import { TableSession } from "@/types"
 
 export const tablesAPI = {
   list: async (branchId: string) => {
-    const res = await API.get(`/owner/branches/${branchId}/tables`)
-    return res.data as Table[]
+    const res = await API.get(`/owner/tables?branch_id=${branchId}`)
+    return res.data  // ← no cast, let the caller type it
   },
-  getWithSessions: async (branchId: string) => {
-    const res = await API.get(`/tables?branch_id=${branchId}`)
-    return res.data
-  },
+
   create: async (branchId: string, tableNumber: number) => {
     const res = await API.post(`/owner/branches/${branchId}/tables`, {
       table_number: tableNumber,
     })
-    return res.data as Table
+    return res.data
   },
 }
 
@@ -26,9 +23,11 @@ export const sessionsAPI = {
     })
     return res.data as TableSession
   },
+
   close: async (sessionId: string) => {
     await API.post(`/table-session/${sessionId}/close`)
   },
+
   heartbeat: async (sessionId: string) => {
     await API.post("/table-session/heartbeat", {
       session_id: sessionId,

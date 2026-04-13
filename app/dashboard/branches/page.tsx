@@ -7,16 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { Plus, MapPin, TableProperties, Users, MoreVertical, Loader2, AlertCircle, RefreshCw } from "lucide-react"
+import { Plus, MapPin, MoreVertical, Loader2, AlertCircle, RefreshCw } from "lucide-react"
 import { branchesAPI } from "@/lib/api/branches"
-
-interface Branch {
-  ID: string
-  Name: string
-  Location: string
-  TenantID: string
-  CreatedAt: string
-}
+import { Branch } from "@/types"
 
 export default function BranchesPage() {
   const [branches, setBranches] = useState<Branch[]>([])
@@ -30,7 +23,7 @@ export default function BranchesPage() {
     try {
       setError(null)
       const data = await branchesAPI.list()
-      setBranches(data)
+      setBranches(data)  // no ?? [] needed
     } catch (err: any) {
       setError(err.response?.data?.error ?? "Failed to load branches")
     } finally {

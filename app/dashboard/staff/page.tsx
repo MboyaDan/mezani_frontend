@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { Plus, Users, Shield, ChefHat, Coffee, Loader2, AlertCircle } from "lucide-react"
 import { staffAPI } from "@/lib/api/staff"
 import { branchesAPI } from "@/lib/api/branches"
+import { Branch } from "@/types"
 
 const roleConfig: Record<string, { color: string; bg: string; icon: any }> = {
   manager: { color: "text-blue-700", bg: "bg-blue-100", icon: Shield },
@@ -18,10 +19,7 @@ const roleConfig: Record<string, { color: string; bg: string; icon: any }> = {
   cashier: { color: "text-violet-700", bg: "bg-violet-100", icon: Users },
 }
 
-interface Branch {
-  ID: string
-  Name: string
-}
+
 
 interface FieldErrors {
   name?: string
@@ -41,14 +39,14 @@ export default function StaffPage() {
     name: "", email: "", password: "", role: "waiter", branch_id: "",
   })
 
-  useEffect(() => {
-    branchesAPI.list().then((data) => {
-      setBranches(data)
-      if (data.length > 0) {
-        setForm((prev) => ({ ...prev, branch_id: data[0].ID }))
-      }
-    }).catch(() => {})
-  }, [])
+useEffect(() => {
+  branchesAPI.list().then((data) => {
+    setBranches(data)
+    if (data.length > 0) {
+      setForm((prev) => ({ ...prev, branch_id: data[0].ID }))
+    }
+  }).catch(() => {})
+}, [])
 
   const validate = (): boolean => {
     const errors: FieldErrors = {}

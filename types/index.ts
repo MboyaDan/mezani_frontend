@@ -24,19 +24,18 @@ export interface Branch {
 }
 
 export interface Table {
-  ID: string
-  BranchID: string
-  TableNumber: number
+  id: string
+  branch_id: string
+  table_number: number
 }
 
 export interface TableSession {
-  ID: string
-  TableID: string
-  Status: string
-  ExpiresAt: string
-  CreatedAt: string
+  id: string
+  table_id: string
+  status: string
+  expires_at: string
+  created_at: string
 }
-
 export interface CustomerSession {
   ID: string
   TableSessionID: string
