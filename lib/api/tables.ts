@@ -13,6 +13,10 @@ export const tablesAPI = {
     })
     return res.data
   },
+    getWithSessions: async (branchId: string) => {
+  const res = await API.get(`/tables?branch_id=${branchId}`)
+  return res.data
+},
 }
 
 export const sessionsAPI = {
@@ -33,4 +37,6 @@ export const sessionsAPI = {
       session_id: sessionId,
     })
   },
+
+
 }

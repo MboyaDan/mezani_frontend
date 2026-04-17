@@ -8,40 +8,33 @@ import { JWTPayload } from "@/types"
 import { BranchSelector } from "@/components/branch/branch-selector"
 import { useBranch } from "@/hooks/useBranch"
 import {
-  LayoutDashboard,
-  UtensilsCrossed,
-  Users,
-  TableProperties,
-  BarChart3,
-  Package,
-  ChefHat,
-  LogOut,
-  ShoppingBag,
-  Network,
+  LayoutDashboard, UtensilsCrossed, Users,
+  TableProperties, BarChart3, Package,
+  ChefHat, LogOut, ShoppingBag, Network,
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 
 const navItems = [
-  { label: "Overview", href: "/dashboard", icon: LayoutDashboard, roles: ["owner", "manager"] },
-  { label: "Orders", href: "/dashboard/orders", icon: ShoppingBag, roles: ["owner", "manager", "waiter"] },
-  { label: "Menu", href: "/dashboard/menu", icon: UtensilsCrossed, roles: ["owner", "manager"] },
-  { label: "Tables", href: "/dashboard/tables", icon: TableProperties, roles: ["owner", "manager", "waiter"] },
-  { label: "Staff", href: "/dashboard/staff", icon: Users, roles: ["owner"] },
-  { label: "Branches", href: "/dashboard/branches", icon: Network, roles: ["owner"] },
-  { label: "Inventory", href: "/dashboard/inventory", icon: Package, roles: ["owner", "manager"] },
-  { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3, roles: ["owner", "manager"] },
+  { label: "Overview",   href: "/dashboard",            icon: LayoutDashboard, roles: ["owner", "manager"] },
+  { label: "Orders",     href: "/dashboard/orders",     icon: ShoppingBag,     roles: ["owner", "manager", "waiter"] },
+  { label: "Menu",       href: "/dashboard/menu",       icon: UtensilsCrossed, roles: ["owner", "manager"] },
+  { label: "Tables",     href: "/dashboard/tables",     icon: TableProperties, roles: ["owner", "manager", "waiter"] },
+  { label: "Staff",      href: "/dashboard/staff",      icon: Users,           roles: ["owner"] },
+  { label: "Branches",   href: "/dashboard/branches",   icon: Network,         roles: ["owner"] },
+  { label: "Inventory",  href: "/dashboard/inventory",  icon: Package,         roles: ["owner", "manager"] },
+  { label: "Analytics",  href: "/dashboard/analytics",  icon: BarChart3,       roles: ["owner", "manager"] },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
   const { logout } = useAuth()
   const { branchId, selectBranch } = useBranch()
-
   const [mounted, setMounted] = useState(false)
-  const user: JWTPayload | null = mounted ? getCurrentUser() : null
+  const [user, setUser] = useState<JWTPayload | null>(null)
 
   useEffect(() => {
     setMounted(true)
+    setUser(getCurrentUser())
   }, [])
 
   if (!mounted) {
@@ -64,7 +57,15 @@ export function Sidebar() {
           </div>
           <h1 className="text-lg font-bold tracking-tight">Mezzani</h1>
         </div>
-        <p className="text-xs text-zinc-400 mt-1 capitalize ml-9">
+
+        {/* NOW FROM JWT */}
+        {user?.tenant_name && (
+          <p className="text-xs text-zinc-300 font-medium mt-1 ml-9 truncate">
+            {user.tenant_name}
+          </p>
+        )}
+
+        <p className="text-xs text-zinc-500 mt-0.5 capitalize ml-9">
           {user?.role ?? ""}
         </p>
       </div>
@@ -92,6 +93,7 @@ export function Sidebar() {
         })}
       </nav>
 
+      {/* Branch Selector */}
       {(user?.role === "owner" || user?.role === "manager") && (
         <div className="px-3 pb-2 border-t border-white/10 pt-3">
           <p className="text-xs text-zinc-500 px-3 mb-1">Current Branch</p>

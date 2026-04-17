@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Topbar } from "@/components/layout/topbar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -7,19 +7,31 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { Plus, Users, Shield, ChefHat, Coffee, Loader2, AlertCircle } from "lucide-react"
+import {
+  Plus, Users, Shield, ChefHat, Coffee,
+  Loader2, AlertCircle, Trash2, RefreshCw
+} from "lucide-react"
 import { staffAPI } from "@/lib/api/staff"
 import { branchesAPI } from "@/lib/api/branches"
+import { useBranch } from "@/hooks/useBranch"
 import { Branch } from "@/types"
 
 const roleConfig: Record<string, { color: string; bg: string; icon: any }> = {
-  manager: { color: "text-blue-700", bg: "bg-blue-100", icon: Shield },
-  waiter: { color: "text-emerald-700", bg: "bg-emerald-100", icon: Coffee },
-  kitchen: { color: "text-orange-700", bg: "bg-orange-100", icon: ChefHat },
-  cashier: { color: "text-violet-700", bg: "bg-violet-100", icon: Users },
+  owner:   { color: "text-zinc-700",    bg: "bg-zinc-100",    icon: Users },
+  manager: { color: "text-blue-700",    bg: "bg-blue-100",    icon: Shield },
+  waiter:  { color: "text-emerald-700", bg: "bg-emerald-100", icon: Coffee },
+  kitchen: { color: "text-orange-700",  bg: "bg-orange-100",  icon: ChefHat },
+  cashier: { color: "text-violet-700",  bg: "bg-violet-100",  icon: Users },
 }
 
-
+interface StaffMember {
+  ID: string
+  Name: string
+  Email: string
+  Role: string
+  BranchID: any
+  CreatedAt: string
+}
 
 interface FieldErrors {
   name?: string
@@ -29,24 +41,42 @@ interface FieldErrors {
 }
 
 export default function StaffPage() {
+  const { branchId } = useBranch()
+  const [staff, setStaff] = useState<StaffMember[]>([])
   const [branches, setBranches] = useState<Branch[]>([])
+  const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
-  const [success, setSuccess] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: "", email: "", password: "", role: "waiter", branch_id: "",
   })
 
-useEffect(() => {
-  branchesAPI.list().then((data) => {
-    setBranches(data)
-    if (data.length > 0) {
-      setForm((prev) => ({ ...prev, branch_id: data[0].ID }))
+  const fetchStaff = useCallback(async () => {
+    if (!branchId) return
+    try {
+      setError(null)
+      const data = await staffAPI.list(branchId)
+      setStaff(data ?? [])
+    } catch (err: any) {
+      setError(err.response?.data?.error ?? "Failed to load staff")
+    } finally {
+      setLoading(false)
     }
-  }).catch(() => {})
-}, [])
+  }, [branchId])
+
+  useEffect(() => {
+    fetchStaff()
+    branchesAPI.list().then((data) => {
+      setBranches(data)
+      if (data.length > 0) {
+        setForm((prev) => ({ ...prev, branch_id: data[0].ID }))
+      }
+    }).catch(() => {})
+  }, [fetchStaff])
 
   const validate = (): boolean => {
     const errors: FieldErrors = {}
@@ -66,7 +96,6 @@ useEffect(() => {
     return Object.keys(errors).length === 0
   }
 
-  // Clear a field's error as the user types
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
     if (fieldErrors[field as keyof FieldErrors]) {
@@ -80,11 +109,12 @@ useEffect(() => {
     setError(null)
     try {
       await staffAPI.create(form)
-      setSuccess(true)
+      setSuccess("Staff member created successfully")
       setShowDialog(false)
       setForm({ name: "", email: "", password: "", role: "waiter", branch_id: branches[0]?.ID ?? "" })
       setFieldErrors({})
-      setTimeout(() => setSuccess(false), 3000)
+      await fetchStaff()
+      setTimeout(() => setSuccess(null), 3000)
     } catch (err: any) {
       const raw = err.response?.data?.error ?? ""
       if (raw.includes("duplicate key") || raw.includes("staff_users_email_key")) {
@@ -94,6 +124,20 @@ useEffect(() => {
       }
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    setDeleteId(id)
+    try {
+      await staffAPI.delete(id)
+      setStaff((prev) => prev.filter((s) => s.ID !== id))
+      setSuccess("Staff member removed")
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err: any) {
+      setError(err.response?.data?.error ?? "Failed to delete staff member")
+    } finally {
+      setDeleteId(null)
     }
   }
 
@@ -110,26 +154,34 @@ useEffect(() => {
 
         {/* Toolbar */}
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-zinc-500">Manage your restaurant staff</p>
-          <Button
-            onClick={handleOpenDialog}
-            className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 shadow-sm shadow-orange-200"
-          >
-            <Plus className="w-4 h-4" />
-            Add Staff
-          </Button>
+          <p className="text-sm text-zinc-500">
+            {staff.length} {staff.length === 1 ? "member" : "members"}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchStaff}
+              className="p-2.5 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4 text-zinc-500" />
+            </button>
+            <Button
+              onClick={handleOpenDialog}
+              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 shadow-sm shadow-orange-200"
+            >
+              <Plus className="w-4 h-4" />
+              Add Staff
+            </Button>
+          </div>
         </div>
 
         {/* Success */}
         {success && (
           <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-            <p className="text-sm text-emerald-700 font-medium">
-              ✅ Staff member created successfully
-            </p>
+            <p className="text-sm text-emerald-700 font-medium">✅ {success}</p>
           </div>
         )}
 
-        {/* Page-level error */}
+        {/* Error */}
         {error && (
           <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
@@ -137,45 +189,78 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Info card */}
-        <Card className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
-          <CardContent className="p-5">
-            <p className="text-sm font-semibold text-zinc-900 mb-1">Staff Roles</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-              {Object.entries(roleConfig).map(([role, config]) => {
-                const Icon = config.icon
-                return (
-                  <div key={role} className={cn("flex items-center gap-2 px-3 py-2 rounded-xl", config.bg)}>
-                    <Icon className={cn("w-4 h-4", config.color)} />
-                    <span className={cn("text-xs font-semibold capitalize", config.color)}>{role}</span>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="mt-4 space-y-1.5">
-              {[
-                { role: "manager", desc: "Menu, reports, tables" },
-                { role: "waiter", desc: "Create orders, view menu" },
-                { role: "kitchen", desc: "View & update order status" },
-                { role: "cashier", desc: "View orders, close bills" },
-              ].map((r) => (
-                <div key={r.role} className="flex items-center gap-2 text-xs text-zinc-500">
-                  <span className="font-medium capitalize text-zinc-700 w-16">{r.role}</span>
-                  <span>— {r.desc}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Loading */}
+        {loading && (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
+          </div>
+        )}
 
-        {/* Note about staff listing */}
-        <div className="flex items-start gap-3 bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3">
-          <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-zinc-500">
-            Staff listing coming soon. Use the Add Staff button to create new staff members.
-            Each staff member receives login credentials via email.
-          </p>
-        </div>
+        {/* Empty state */}
+        {!loading && staff.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center mb-3">
+              <Users className="w-6 h-6 text-zinc-300" />
+            </div>
+            <p className="text-sm font-medium text-zinc-500">No staff yet</p>
+            <p className="text-xs text-zinc-400 mt-1">Add your first staff member to get started</p>
+          </div>
+        )}
+
+        {/* Staff Grid */}
+        {!loading && staff.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {staff.map((member) => {
+              const config = roleConfig[member.Role] ?? roleConfig.waiter
+              const Icon = config.icon
+              const initials = member.Name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+              return (
+                <Card
+                  key={member.ID}
+                  className="bg-white rounded-2xl border border-zinc-200 shadow-sm hover:shadow-md transition-all"
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-[#0f172a] text-white text-sm font-bold flex items-center justify-center shrink-0">
+                          {initials}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-900">{member.Name}</p>
+                          <p className="text-xs text-zinc-400 mt-0.5">{member.Email}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDelete(member.ID)}
+                        disabled={deleteId === member.ID}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                      >
+                        {deleteId === member.ID
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <Trash2 className="w-4 h-4" />
+                        }
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4">
+                      <span className={cn(
+                        "flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full capitalize",
+                        config.bg, config.color
+                      )}>
+                        <Icon className="w-3 h-3" />
+                        {member.Role}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="text-xs text-zinc-500">Active</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Add Staff Dialog */}
@@ -272,7 +357,7 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* General API error */}
+            {/* General API error inside dialog */}
             {error && (
               <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
                 <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />

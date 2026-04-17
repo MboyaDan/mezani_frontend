@@ -24,4 +24,9 @@ export const inventoryAPI = {
     const res = await API.patch(`/branches/${branchId}/inventory/low-stock`)
     return res.data
   },
+
+  delete: async (branchId: string, itemId: string) => {
+    await API.delete(`/branches/${branchId}/inventory/${itemId}`)
+},
+
 }

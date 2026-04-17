@@ -108,6 +108,7 @@ export interface InventoryItem {
 export interface JWTPayload {
   user_id: string
   tenant_id: string
+  tenant_name: string // ✅ ADD THIS
   branch_id: string
   role: Role
   exp: number

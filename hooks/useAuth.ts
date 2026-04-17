@@ -72,8 +72,10 @@ export function useAuth() {
         password,
       })
       saveTokens(res.data)
+
       localStorage.removeItem("branch_id")
       localStorage.removeItem("branch_name")
+
       router.push("/dashboard")
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Registration failed"))

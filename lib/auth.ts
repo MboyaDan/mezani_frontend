@@ -26,13 +26,22 @@ export function decodeToken(token: string): JWTPayload | null {
   try {
     const base64 = token.split(".")[1]
     const decoded = JSON.parse(atob(base64))
-    return decoded as JWTPayload
+
+    return {
+      user_id: decoded.uid,
+      tenant_id: decoded.tid,
+      tenant_name: decoded.tname,
+      branch_id: decoded.bid,
+      role: decoded.role,
+      exp: decoded.exp,
+    }
   } catch {
     return null
   }
 }
 
 export function getCurrentUser(): JWTPayload | null {
+  if (typeof window === "undefined") return null
   const token = getAccessToken()
   if (!token) return null
   return decodeToken(token)

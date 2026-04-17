@@ -59,4 +59,7 @@ getBySession: async (sessionId: string) => {
   const res = await API.get(`/table-sessions/${sessionId}/info`)
   return res.data as { table_number: number }
 },
+deleteItem: async (itemId: string) => {
+    await API.delete(`/menu/items/${itemId}`)
+},
 }
