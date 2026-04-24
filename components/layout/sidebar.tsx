@@ -59,9 +59,9 @@ export function Sidebar() {
         </div>
 
         {/* NOW FROM JWT */}
-        {user?.tenant_name && (
+        {user?.tname && (
           <p className="text-xs text-zinc-300 font-medium mt-1 ml-9 truncate">
-            {user.tenant_name}
+            {user.tname}
           </p>
         )}
 

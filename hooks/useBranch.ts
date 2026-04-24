@@ -6,9 +6,9 @@ function getInitialBranchId(): string | null {
   const stored = localStorage.getItem("branch_id")
   if (stored) return stored
   const user = getCurrentUser()
-  if (user?.branch_id && user.branch_id !== "00000000-0000-0000-0000-000000000000") {
-    localStorage.setItem("branch_id", user.branch_id)
-    return user.branch_id
+  if (user?.bid && user.bid !== "00000000-0000-0000-0000-000000000000") {
+    localStorage.setItem("branch_id", user.bid)
+    return user.bid
   }
   return null
 }

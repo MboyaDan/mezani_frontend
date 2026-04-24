@@ -106,10 +106,13 @@ export interface InventoryItem {
 
 // JWT decoded payload
 export interface JWTPayload {
-  user_id: string
-  tenant_id: string
-  tenant_name: string // ✅ ADD THIS
-  branch_id: string
+  uid: string
+  tid: string
+  tname: string
+  bid?: string
   role: Role
+  tca: number
+  plan: string
   exp: number
+  iat: number
 }

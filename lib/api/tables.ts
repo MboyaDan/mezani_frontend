@@ -2,10 +2,14 @@ import API from "@/lib/client"
 import { TableSession } from "@/types"
 
 export const tablesAPI = {
-  list: async (branchId: string) => {
-    const res = await API.get(`/owner/tables?branch_id=${branchId}`)
-    return res.data  // ← no cast, let the caller type it
-  },
+list: async (branchId: string) => {
+  const res = await API.get(`/owner/tables?branch_id=${branchId}`)
+  return res.data
+},
+
+getWithSessions: async (branchId: string) => {
+  return tablesAPI.list(branchId)
+},
 
   create: async (branchId: string, tableNumber: number) => {
     const res = await API.post(`/owner/branches/${branchId}/tables`, {
@@ -13,10 +17,7 @@ export const tablesAPI = {
     })
     return res.data
   },
-    getWithSessions: async (branchId: string) => {
-  const res = await API.get(`/tables?branch_id=${branchId}`)
-  return res.data
-},
+
 }
 
 export const sessionsAPI = {

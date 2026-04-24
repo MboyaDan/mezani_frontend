@@ -4,7 +4,7 @@ import { Topbar } from "@/components/layout/topbar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+  BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts"
 import {
@@ -39,7 +39,20 @@ export default function AnalyticsPage() {
     try {
       setError(null)
       const res = await analyticsAPI.dashboard()
-      setData(res)
+      // Normalize backend field names once here so the rest of the
+      // component can use clean, consistent keys (hour / total_orders)
+      const normalized: DashboardData = {
+        ...res,
+        peak_hours: (res.peak_hours ?? []).map((p: any) => ({
+          hour: p.Hour ?? p.hour,
+          total_orders: p.OrderCount ?? p.total_orders,
+        })),
+        popular_items: (res.popular_items ?? []).map((item: any) => ({
+  name: item.Name ?? item.name,
+  total_orders: item.TotalSold ?? item.total_orders,
+}))
+      }
+      setData(normalized)
     } catch (err: any) {
       setError(err.response?.data?.error ?? "Failed to load analytics")
     } finally {
@@ -51,13 +64,12 @@ export default function AnalyticsPage() {
     fetchAnalytics()
   }, [fetchAnalytics])
 
-  // Format peak hours for chart
+  // Now uses clean normalized keys — no any casting needed
   const peakHoursData = (data?.peak_hours ?? []).map((p) => ({
     hour: `${p.hour}:00`,
-    orders: Number(p.total_orders),
+    orders: Number(p.total_orders) || 0,
   }))
 
-  // Format popular items
   const popularItems = data?.popular_items ?? []
   const maxOrders = popularItems[0]?.total_orders ?? 1
 
@@ -194,17 +206,17 @@ export default function AnalyticsPage() {
                           tickLine={false}
                         />
                         <Tooltip
-                        contentStyle={{ borderRadius: "12px", border: "1px solid #f4f4f5", fontSize: 12 }}
-                        formatter={(v: string | number) => [v, "orders"]}
-                        />                 
-                         <Bar dataKey="orders" fill="#10b981" radius={[4, 4, 0, 0]} />
+                          contentStyle={{ borderRadius: "12px", border: "1px solid #f4f4f5", fontSize: 12 }}
+                          formatter={(value): [string, string] => [String(value), "orders"]}
+                        />
+                        <Bar dataKey="orders" fill="#10b981" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
                 </CardContent>
               </Card>
 
-              {/* Returning customers placeholder */}
+              {/* Customer Insights */}
               <Card className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base font-semibold">Customer Insights</CardTitle>
@@ -242,7 +254,7 @@ export default function AnalyticsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {popularItems.map((dish, i) => (
-<div key={`${dish.name}-${i}`} className="flex items-center gap-4">
+                    <div key={`${dish.name}-${i}`} className="flex items-center gap-4">
                       <span className="text-sm font-bold text-zinc-400 w-4">{i + 1}</span>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1.5">

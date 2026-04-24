@@ -84,9 +84,9 @@ export default function DashboardPage() {
     },
     {
       title: "Best Seller",
-      value: analytics?.popular_items?.[0]?.name ?? "—",
+      value: analytics?.popular_items?.[0]?.Name ?? "—",
       sub: analytics?.popular_items?.[0]
-        ? `${analytics.popular_items[0].total_orders} orders`
+        ? `${analytics.popular_items[0].TotalSold} orders`
         : "No data",
       icon: Clock,
       color: "text-orange-600",
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                         <span className="text-sm font-bold text-zinc-400 w-4">{i + 1}</span>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-zinc-900 truncate">{dish.name}</span>
+                            <span className="text-sm font-medium text-zinc-900 truncate">{dish.Name}</span>
                             <span className="text-xs text-zinc-400 shrink-0 ml-2">{dish.total_orders}</span>
                           </div>
                           <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">

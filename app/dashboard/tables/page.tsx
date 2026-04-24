@@ -6,9 +6,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { Plus, Clock, Users, QrCode, X, RefreshCw, Loader2, AlertCircle } from "lucide-react"
+import {
+  Plus, Clock, Users, QrCode, X, RefreshCw,
+  Loader2, AlertCircle, Download, Printer,
+} from "lucide-react"
 import { tablesAPI, sessionsAPI } from "@/lib/api/tables"
 import { useBranch } from "@/hooks/useBranch"
+import QRCode from "react-qr-code"
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type TableStatus = "free" | "active" | "expiring"
 
@@ -31,12 +37,10 @@ interface RawTable {
 }
 
 interface ApiError {
-  response?: {
-    data?: {
-      error?: string
-    }
-  }
+  response?: { data?: { error?: string } }
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getMinutesLeft(expiresAt?: Date): number {
   if (!expiresAt) return 0
@@ -49,6 +53,50 @@ function getElapsed(createdAt?: Date): string {
   if (mins < 60) return `${mins}m`
   return `${Math.floor(mins / 60)}h ${mins % 60}m`
 }
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  const apiErr = err as ApiError
+  return apiErr?.response?.data?.error ?? fallback
+}
+
+/**
+ * The QR code always encodes a permanent table-scoped URL.
+ * The server resolves the active session when the customer hits this route.
+ * This means the physical QR card printed on the table never needs replacing.
+ *
+ * Flow: customer scans → /menu/{tableId} → server checks active session
+ *   → session found  → show menu + ordering
+ *   → no session     → show "waiting for staff" screen (auto-polls)
+ */
+function buildMenuUrl(tableId: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? ""
+  return `${base}/menu/${tableId}`
+}
+
+/**
+ * Serialise an SVG element and download it as a 400×400 PNG.
+ * Uses unescape+encodeURIComponent so btoa handles non-Latin characters
+ * (e.g. restaurant names with accents) without throwing.
+ */
+function downloadSvgAsPng(svg: SVGElement, filename: string) {
+  const SIZE = 400
+  const svgData = new XMLSerializer().serializeToString(svg)
+  const canvas = document.createElement("canvas")
+  canvas.width = SIZE
+  canvas.height = SIZE
+  const ctx = canvas.getContext("2d")
+  const img = new Image()
+  img.onload = () => {
+    ctx?.drawImage(img, 0, 0, SIZE, SIZE)
+    const link = document.createElement("a")
+    link.download = filename
+    link.href = canvas.toDataURL("image/png")
+    link.click()
+  }
+  img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)))
+}
+
+// ─── Status config ────────────────────────────────────────────────────────────
 
 const statusConfig: Record<TableStatus, {
   label: string
@@ -76,9 +124,8 @@ const statusConfig: Record<TableStatus, {
   },
 }
 
-// Server snapshot returns false, client snapshot returns true.
-// This avoids both the setState-in-effect warning and hydration mismatches
-// from any Date.now() calls that differ between server and client.
+// ─── useIsMounted ─────────────────────────────────────────────────────────────
+
 function useIsMounted(): boolean {
   return useSyncExternalStore(
     () => () => {},
@@ -86,6 +133,95 @@ function useIsMounted(): boolean {
     () => false,
   )
 }
+
+// ─── QRDialog ─────────────────────────────────────────────────────────────────
+
+/**
+ * Extracted into its own component for two reasons:
+ * 1. Keeps the download handler co-located with the QR DOM node it targets.
+ * 2. Allows early return when table is null without hook ordering issues.
+ */
+function QRDialog({
+  open,
+  table,
+  onClose,
+}: {
+  open: boolean
+  table: Table | null
+  onClose: () => void
+}) {
+  if (!table) return null
+
+  const url = buildMenuUrl(table.id)
+  const isInactive = table.status === "free"
+
+  const handleDownload = () => {
+    const svg = document.querySelector("#qr-dialog-code svg") as SVGElement | null
+    if (!svg) return
+    downloadSvgAsPng(svg, `table-${table.tableNumber}-qr.png`)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="rounded-2xl max-w-sm">
+        <DialogHeader>
+          <DialogTitle>QR Code — Table {table.tableNumber}</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col items-center gap-4 py-4">
+          {/*
+            Contextual hint when no session is active.
+            We show it here (not block it) because printing QR codes
+            before activating sessions is the intended workflow —
+            laminate first, activate when guests arrive.
+          */}
+          {isInactive && (
+            <div className="w-full flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700 leading-relaxed">
+                <span className="font-semibold">No active session.</span> Print & place this QR now.
+                Customers will see a waiting screen until you start a session for this table.
+              </p>
+            </div>
+          )}
+
+          {/* QR code — encodes tableId, never the sessionId */}
+          <div id="qr-dialog-code" className="bg-white p-4 rounded-2xl border border-zinc-200">
+            <QRCode
+              value={url}
+              size={180}
+              style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+            />
+          </div>
+
+          <p className="text-xs text-zinc-500 text-center">
+            Table {table.tableNumber} · Permanent QR — safe to laminate
+          </p>
+          <p className="text-xs font-mono text-zinc-400 break-all px-2 text-center">{url}</p>
+
+          <div className="flex gap-3 w-full">
+            <button
+              onClick={handleDownload}
+              className="flex-1 flex items-center justify-center gap-2 bg-[#0f172a] text-white text-sm font-semibold py-3 rounded-xl hover:bg-zinc-800 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Download PNG
+            </button>
+            <Button
+              className="flex-1 rounded-xl border border-zinc-200"
+              variant="outline"
+              onClick={onClose}
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── TableCard ────────────────────────────────────────────────────────────────
 
 function TableCard({
   table,
@@ -102,17 +238,11 @@ function TableCard({
 }) {
   const [tick, setTick] = useState(0)
   const mounted = useIsMounted()
-
   const config = statusConfig[table.status]
-
-  // Every value derived from Date.now() must be behind `mounted`.
-  // This includes isCritical — it drives a CSS class on the wrapper div,
-  // so if it differs between server and client it causes a hydration mismatch.
   const minsLeft = mounted ? getMinutesLeft(table.expiresAt) : 0
   const elapsed = mounted ? getElapsed(table.createdAt) : ""
   const isCritical = mounted && table.status === "expiring" && minsLeft <= 10
-
-  void tick // tick only exists to re-render every 30s on the client
+  void tick
 
   useEffect(() => {
     if (table.status === "free") return
@@ -123,23 +253,23 @@ function TableCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border p-4 transition-all duration-150",
+        "rounded-2xl border p-4 transition-all duration-150 flex flex-col",
         config.card,
         isCritical && "ring-2 ring-amber-400 ring-offset-1",
       )}
     >
+      {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className={cn("w-2 h-2 rounded-full shrink-0 mt-0.5", config.dot)} />
-          <span className="text-base font-bold text-zinc-900">
-            Table {table.tableNumber}
-          </span>
+          <span className="text-base font-bold text-zinc-900">Table {table.tableNumber}</span>
         </div>
         <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", config.badge)}>
           {config.label}
         </span>
       </div>
 
+      {/* Session timer (only when session is live) */}
       {table.status !== "free" && (
         <div className="space-y-1.5 mb-4">
           <div className="flex items-center justify-between text-xs text-zinc-500">
@@ -147,23 +277,13 @@ function TableCard({
               <Clock className="w-3 h-3" />
               {mounted ? `${elapsed} open` : ""}
             </span>
-            <span className={cn(
-              "text-xs font-semibold",
-              isCritical ? "text-amber-600" : "text-zinc-500",
-            )}>
-              {mounted
-                ? isCritical
-                  ? `⚠ ${minsLeft}m left`
-                  : `${minsLeft}m remaining`
-                : ""}
+            <span className={cn("text-xs font-semibold", isCritical ? "text-amber-600" : "text-zinc-500")}>
+              {mounted ? (isCritical ? `⚠ ${minsLeft}m left` : `${minsLeft}m remaining`) : ""}
             </span>
           </div>
           <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
             <div
-              className={cn(
-                "h-full rounded-full",
-                isCritical ? "bg-amber-500" : "bg-emerald-500",
-              )}
+              className={cn("h-full rounded-full", isCritical ? "bg-amber-500" : "bg-emerald-500")}
               style={{ width: mounted ? `${Math.min((minsLeft / 120) * 100, 100)}%` : "0%" }}
             />
           </div>
@@ -174,23 +294,30 @@ function TableCard({
         <p className="text-xs text-zinc-400 mb-4">No active session</p>
       )}
 
-      <div className="flex items-center gap-2">
-        {table.status === "free" && (
+      {/* Action row */}
+      <div className="flex items-center gap-2 mt-auto">
+        {/*
+          QR button is ALWAYS shown — free or active.
+          Owners print QR codes before activating sessions.
+          The QR encodes tableId, not sessionId, so it never expires.
+        */}
+        <button
+          onClick={() => onShowQR(table)}
+          title="Show QR code"
+          className="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors"
+        >
+          <QrCode className="w-3.5 h-3.5" />
+        </button>
+
+        {table.status === "free" ? (
           <button
             onClick={() => onActivate(table)}
             className="flex-1 text-xs font-semibold bg-[#0f172a] hover:bg-zinc-800 text-white py-2 rounded-xl transition-colors"
           >
             Start Session
           </button>
-        )}
-        {table.status !== "free" && (
+        ) : (
           <>
-            <button
-              onClick={() => onShowQR(table)}
-              className="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors"
-            >
-              <QrCode className="w-3.5 h-3.5" />
-            </button>
             <button
               onClick={() => onExtend(table)}
               className="flex-1 text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 py-2 rounded-xl transition-colors flex items-center justify-center gap-1"
@@ -211,10 +338,7 @@ function TableCard({
   )
 }
 
-function extractErrorMessage(err: unknown, fallback: string): string {
-  const apiErr = err as ApiError
-  return apiErr?.response?.data?.error ?? fallback
-}
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TablesPage() {
   const { branchId } = useBranch()
@@ -229,12 +353,13 @@ export default function TablesPage() {
   const [newTableNumber, setNewTableNumber] = useState("")
   const [filter, setFilter] = useState<"all" | TableStatus>("all")
   const [actionLoading, setActionLoading] = useState(false)
+  const [bulkDownloading, setBulkDownloading] = useState(false)
 
   const fetchTables = useCallback(async () => {
     if (!branchId) return
     try {
       setError(null)
-    const data = await tablesAPI.list(branchId) as unknown as RawTable[]
+      const data = await tablesAPI.list(branchId) as unknown as RawTable[]
       setTables(data.map((t) => ({
         id: t.id,
         tableNumber: t.table_number,
@@ -255,6 +380,39 @@ export default function TablesPage() {
     const t = setInterval(fetchTables, 30000)
     return () => clearInterval(t)
   }, [fetchTables])
+
+  /**
+   * Bulk QR download using the `qrcode` npm package.
+   * This avoids having to render React components imperatively.
+   * Each QR is generated as a canvas data URL and downloaded sequentially
+   * with a 400ms gap so browsers don't suppress the downloads.
+   *
+   * Required: npm install qrcode @types/qrcode
+   */
+  const handleBulkDownload = async () => {
+    if (tables.length === 0) return
+    setBulkDownloading(true)
+    try {
+      const QRCodeGen = await import("qrcode")
+      for (const table of tables) {
+        const dataUrl = await QRCodeGen.default.toDataURL(buildMenuUrl(table.id), {
+          width: 400,
+          margin: 2,
+        })
+        const link = document.createElement("a")
+        link.download = `table-${table.tableNumber}-qr.png`
+        link.href = dataUrl
+        link.click()
+        await new Promise((r) => setTimeout(r, 400))
+      }
+    } catch {
+      setError("Bulk download failed. Run: npm install qrcode @types/qrcode")
+    } finally {
+      setBulkDownloading(false)
+    }
+  }
+
+  // ── Session handlers ─────────────────────────────────────────────────────────
 
   const handleActivate = (table: Table) => {
     setSelectedTable(table)
@@ -297,11 +455,6 @@ export default function TablesPage() {
     }
   }
 
-  const handleShowQR = (table: Table) => {
-    setSelectedTable(table)
-    setShowQRDialog(true)
-  }
-
   const handleAddTable = async () => {
     if (!newTableNumber || !branchId) return
     setActionLoading(true)
@@ -317,6 +470,8 @@ export default function TablesPage() {
     }
   }
 
+  // ── Derived state ────────────────────────────────────────────────────────────
+
   const counts = {
     all: tables.length,
     free: tables.filter((t) => t.status === "free").length,
@@ -324,11 +479,9 @@ export default function TablesPage() {
     expiring: tables.filter((t) => t.status === "expiring").length,
   }
 
-  const filtered = filter === "all"
-    ? tables
-    : tables.filter((t) => t.status === filter)
+  const filtered = filter === "all" ? tables : tables.filter((t) => t.status === filter)
 
-  const expiringCount = counts.expiring
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col flex-1 bg-[#F8FAFC]">
@@ -336,7 +489,7 @@ export default function TablesPage() {
       <div className="p-6 space-y-5">
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
             {(["all", "free", "active", "expiring"] as const).map((s) => (
               <button
@@ -350,22 +503,42 @@ export default function TablesPage() {
                 )}
               >
                 {s === "all" ? "All" : s}
-                <span className={cn(
-                  "ml-1.5 font-bold",
-                  filter === s ? "text-white/70" : "text-zinc-400",
-                )}>
+                <span className={cn("ml-1.5 font-bold", filter === s ? "text-white/70" : "text-zinc-400")}>
                   {counts[s]}
                 </span>
               </button>
             ))}
           </div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={fetchTables}
+              title="Refresh"
               className="p-2.5 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors"
             >
               <RefreshCw className="w-4 h-4 text-zinc-500" />
             </button>
+
+            {/*
+              Print All QRs — available as long as tables exist, regardless of
+              session state. Owner can print all QR codes on day one and laminate
+              them before any sessions have ever been started.
+            */}
+            {tables.length > 0 && (
+              <button
+                onClick={handleBulkDownload}
+                disabled={bulkDownloading}
+                title="Download QR codes for all tables"
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors text-xs font-medium text-zinc-600 disabled:opacity-50"
+              >
+                {bulkDownloading
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Printer className="w-4 h-4" />
+                }
+                {bulkDownloading ? "Generating…" : "Print All QRs"}
+              </button>
+            )}
+
             <Button
               onClick={() => setShowAddDialog(true)}
               className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 shadow-sm shadow-orange-200"
@@ -377,11 +550,11 @@ export default function TablesPage() {
         </div>
 
         {/* Expiring alert */}
-        {expiringCount > 0 && (
+        {counts.expiring > 0 && (
           <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span className="text-sm font-semibold text-amber-800">
-              {expiringCount} {expiringCount === 1 ? "table is" : "tables are"} expiring soon
+              {counts.expiring} {counts.expiring === 1 ? "table is" : "tables are"} expiring soon
             </span>
             <span className="text-xs text-amber-600">— extend or close to free up</span>
           </div>
@@ -413,8 +586,8 @@ export default function TablesPage() {
           </div>
         )}
 
-        {/* Table Grid */}
-        {!loading && (
+        {/* Table grid */}
+        {!loading && filtered.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {filtered
               .sort((a, b) => {
@@ -428,14 +601,21 @@ export default function TablesPage() {
                   onActivate={handleActivate}
                   onExtend={handleExtend}
                   onClose={handleClose}
-                  onShowQR={handleShowQR}
+                  onShowQR={(t) => { setSelectedTable(t); setShowQRDialog(true) }}
                 />
               ))}
           </div>
         )}
       </div>
 
-      {/* Activate Dialog */}
+      {/* QR dialog — session-independent */}
+      <QRDialog
+        open={showQRDialog}
+        table={selectedTable}
+        onClose={() => setShowQRDialog(false)}
+      />
+
+      {/* Activate dialog */}
       <Dialog open={showActivateDialog} onOpenChange={setShowActivateDialog}>
         <DialogContent className="rounded-2xl max-w-sm">
           <DialogHeader>
@@ -492,35 +672,7 @@ export default function TablesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* QR Dialog */}
-      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
-        <DialogContent className="rounded-2xl max-w-sm">
-          <DialogHeader>
-            <DialogTitle>QR Code — Table {selectedTable?.tableNumber}</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-4 py-4">
-            <div className="w-48 h-48 bg-zinc-100 rounded-2xl flex items-center justify-center border-2 border-dashed border-zinc-300">
-              <div className="text-center">
-                <QrCode className="w-12 h-12 text-zinc-400 mx-auto" />
-                <p className="text-xs text-zinc-400 mt-2 break-all px-2">
-                  /menu/{selectedTable?.sessionId}
-                </p>
-              </div>
-            </div>
-            <p className="text-xs text-zinc-500 text-center">
-              Customers scan this to view the menu and order for Table {selectedTable?.tableNumber}
-            </p>
-            <Button
-              className="w-full bg-[#0f172a] text-white rounded-xl"
-              onClick={() => setShowQRDialog(false)}
-            >
-              Done
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Table Dialog */}
+      {/* Add table dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="rounded-2xl max-w-sm">
           <DialogHeader>
