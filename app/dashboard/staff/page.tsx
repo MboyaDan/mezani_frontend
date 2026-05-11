@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Topbar } from "@/components/layout/topbar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { cn } from "@/lib/utils"
 import {
   Plus, Users, Shield, ChefHat, Coffee,
-  Loader2, AlertCircle, Trash2, RefreshCw
+  Loader2, AlertCircle, Trash2, RefreshCw,
+  Eye, EyeOff,
 } from "lucide-react"
 import { staffAPI } from "@/lib/api/staff"
 import { branchesAPI } from "@/lib/api/branches"
@@ -40,6 +41,127 @@ interface FieldErrors {
   branch_id?: string
 }
 
+// ─── Password strength ────────────────────────────────────────────────────────
+interface StrengthResult {
+  score: 0 | 1 | 2 | 3 | 4
+  label: string
+  color: string
+  barColor: string
+  tips: string[]
+}
+
+function getPasswordStrength(password: string): StrengthResult {
+  if (!password) return { score: 0, label: "", color: "", barColor: "", tips: [] }
+
+  const tips: string[] = []
+  let score = 0
+
+  if (password.length >= 8)  score++ ; else tips.push("at least 8 characters")
+  if (password.length >= 12) score++
+  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++ ; else tips.push("upper & lowercase letters")
+  if (/[0-9]/.test(password)) score++ ; else tips.push("a number")
+  if (/[^A-Za-z0-9]/.test(password)) score++ ; else tips.push("a special character")
+
+  // Cap at 4
+  const capped = Math.min(score, 4) as 0 | 1 | 2 | 3 | 4
+
+  const levels: Record<number, Omit<StrengthResult, "score" | "tips">> = {
+    0: { label: "",          color: "text-zinc-400",   barColor: "bg-zinc-200" },
+    1: { label: "Too short", color: "text-red-500",    barColor: "bg-red-400"  },
+    2: { label: "Weak",      color: "text-orange-500", barColor: "bg-orange-400" },
+    3: { label: "Good",      color: "text-yellow-600", barColor: "bg-yellow-400" },
+    4: { label: "Strong",    color: "text-emerald-600",barColor: "bg-emerald-500"},
+  }
+
+  return { score: capped, tips, ...levels[capped] }
+}
+
+// ─── Password field with strength meter ───────────────────────────────────────
+function PasswordField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string
+  onChange: (v: string) => void
+  error?: string
+}) {
+  const [visible, setVisible] = useState(false)
+  const strength = useMemo(() => getPasswordStrength(value), [value])
+
+  return (
+    <div className="space-y-2">
+      <Label>Temporary Password</Label>
+
+      {/* Input + toggle */}
+      <div className="relative">
+        <Input
+          type={visible ? "text" : "password"}
+          placeholder="Min 8 characters"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={cn(
+            "rounded-xl pr-10",
+            error && "border-red-400 focus-visible:ring-red-300",
+          )}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
+          tabIndex={-1}
+          aria-label={visible ? "Hide password" : "Show password"}
+        >
+          {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {/* Strength bar — only shown when the user has typed something */}
+      {value.length > 0 && (
+        <div className="space-y-1.5">
+          {/* 4 segment bar */}
+          <div className="flex gap-1">
+            {[1, 2, 3, 4].map((seg) => (
+              <div
+                key={seg}
+                className={cn(
+                  "h-1.5 flex-1 rounded-full transition-all duration-300",
+                  strength.score >= seg ? strength.barColor : "bg-zinc-100",
+                )}
+              />
+            ))}
+          </div>
+
+          {/* Label + tips */}
+          <div className="flex items-start justify-between gap-2">
+            {strength.label && (
+              <span className={cn("text-xs font-medium", strength.color)}>
+                {strength.label}
+              </span>
+            )}
+            {strength.tips.length > 0 && strength.score < 4 && (
+              <span className="text-xs text-zinc-400 text-right leading-tight">
+                Add {strength.tips.join(", ")}
+              </span>
+            )}
+            {strength.score === 4 && (
+              <span className="text-xs text-emerald-500">✓ Great password</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Validation error */}
+      {error && (
+        <p className="text-xs text-red-500 flex items-center gap-1">
+          <AlertCircle className="w-3 h-3" /> {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function StaffPage() {
   const { branchId } = useBranch()
   const [staff, setStaff] = useState<StaffMember[]>([])
@@ -51,8 +173,11 @@ export default function StaffPage() {
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [success, setSuccess] = useState<string | null>(null)
+
+  // ✅ Default branch_id to the currently active branch, not branches[0]
   const [form, setForm] = useState({
-    name: "", email: "", password: "", role: "waiter", branch_id: "",
+    name: "", email: "", password: "", role: "waiter",
+    branch_id: branchId ?? "",
   })
 
   const fetchStaff = useCallback(async () => {
@@ -72,11 +197,20 @@ export default function StaffPage() {
     fetchStaff()
     branchesAPI.list().then((data) => {
       setBranches(data)
-      if (data.length > 0) {
-        setForm((prev) => ({ ...prev, branch_id: data[0].ID }))
-      }
+      // ✅ Only set branch_id from list if we don't already have one from useBranch()
+      setForm((prev) => ({
+        ...prev,
+        branch_id: prev.branch_id || data[0]?.ID || "",
+      }))
     }).catch(() => {})
   }, [fetchStaff])
+
+  // ✅ Keep form in sync if branchId changes (e.g. branch switch)
+  useEffect(() => {
+    if (branchId) {
+      setForm((prev) => ({ ...prev, branch_id: branchId }))
+    }
+  }, [branchId])
 
   const validate = (): boolean => {
     const errors: FieldErrors = {}
@@ -88,8 +222,9 @@ export default function StaffPage() {
     }
     if (!form.password) {
       errors.password = "Password is required"
-    } else if (form.password.length < 6) {
-      errors.password = "Password must be at least 6 characters"
+    } else if (form.password.length < 8) {
+      // ✅ Raised from 6 to 8 to match strength meter
+      errors.password = "Password must be at least 8 characters"
     }
     if (!form.branch_id) errors.branch_id = "Please select a branch"
     setFieldErrors(errors)
@@ -111,7 +246,8 @@ export default function StaffPage() {
       await staffAPI.create(form)
       setSuccess("Staff member created successfully")
       setShowDialog(false)
-      setForm({ name: "", email: "", password: "", role: "waiter", branch_id: branches[0]?.ID ?? "" })
+      // ✅ Reset to current branch, not branches[0]
+      setForm({ name: "", email: "", password: "", role: "waiter", branch_id: branchId ?? "" })
       setFieldErrors({})
       await fetchStaff()
       setTimeout(() => setSuccess(null), 3000)
@@ -304,22 +440,12 @@ export default function StaffPage() {
               )}
             </div>
 
-            {/* Password */}
-            <div className="space-y-1.5">
-              <Label>Temporary Password</Label>
-              <Input
-                type="password"
-                placeholder="Min 6 characters"
-                value={form.password}
-                onChange={(e) => handleChange("password", e.target.value)}
-                className={cn("rounded-xl", fieldErrors.password && "border-red-400 focus-visible:ring-red-300")}
-              />
-              {fieldErrors.password && (
-                <p className="text-xs text-red-500 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> {fieldErrors.password}
-                </p>
-              )}
-            </div>
+            {/* Password with strength meter */}
+            <PasswordField
+              value={form.password}
+              onChange={(v) => handleChange("password", v)}
+              error={fieldErrors.password}
+            />
 
             {/* Role & Branch */}
             <div className="grid grid-cols-2 gap-3">
