@@ -29,7 +29,7 @@ export default function DashboardPage() {
     if (!branchId) return
     try {
       const [analyticsData, ordersData, tablesData] = await Promise.allSettled([
-        analyticsAPI.dashboard(),
+        analyticsAPI.dashboard(branchId),
         ordersAPI.getRecent(branchId),
         tablesAPI.getWithSessions(branchId),
       ])
@@ -84,9 +84,9 @@ export default function DashboardPage() {
     },
     {
       title: "Best Seller",
-      value: analytics?.popular_items?.[0]?.Name ?? "—",
+      value: analytics?.popular_items?.[0]?.name?? "—",
       sub: analytics?.popular_items?.[0]
-        ? `${analytics.popular_items[0].TotalSold} orders`
+        ? `${analytics.popular_items[0].total_sold} orders`
         : "No data",
       icon: Clock,
       color: "text-orange-600",
@@ -221,8 +221,8 @@ export default function DashboardPage() {
                         <span className="text-sm font-bold text-zinc-400 w-4">{i + 1}</span>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-zinc-900 truncate">{dish.Name}</span>
-                            <span className="text-xs text-zinc-400 shrink-0 ml-2">{dish.total_orders}</span>
+                            <span className="text-sm font-medium text-zinc-900 truncate">{dish.name}</span>
+                            <span className="text-xs text-zinc-400 shrink-0 ml-2">{dish.total_sold}</span>
                           </div>
                           <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                             <div

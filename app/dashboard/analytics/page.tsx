@@ -12,6 +12,8 @@ import {
   ArrowUpRight, Loader2, RefreshCw, AlertCircle,
 } from "lucide-react"
 import { analyticsAPI } from "@/lib/api/analytics"
+import { useBranch } from "@/hooks/useBranch"   
+
 
 interface PopularItem {
   name: string
@@ -31,26 +33,26 @@ interface DashboardData {
 }
 
 export default function AnalyticsPage() {
+  const { branchId } = useBranch()              // ← add this
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchAnalytics = useCallback(async () => {
+    if (!branchId) return                        // ← guard like dashboard page
     try {
       setError(null)
-      const res = await analyticsAPI.dashboard()
-      // Normalize backend field names once here so the rest of the
-      // component can use clean, consistent keys (hour / total_orders)
+      const res = await analyticsAPI.dashboard(branchId)  // ← pass branchId
       const normalized: DashboardData = {
         ...res,
         peak_hours: (res.peak_hours ?? []).map((p: any) => ({
           hour: p.Hour ?? p.hour,
-          total_orders: p.OrderCount ?? p.total_orders,
+          total_orders: p.OrderCount ?? p.order_count ?? p.total_orders,
         })),
         popular_items: (res.popular_items ?? []).map((item: any) => ({
-  name: item.Name ?? item.name,
-  total_orders: item.TotalSold ?? item.total_orders,
-}))
+          name: item.Name ?? item.name,
+          total_orders: item.TotalSold ?? item.total_sold ?? item.total_orders,
+        })),
       }
       setData(normalized)
     } catch (err: any) {
@@ -58,7 +60,7 @@ export default function AnalyticsPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [branchId])                            
 
   useEffect(() => {
     fetchAnalytics()

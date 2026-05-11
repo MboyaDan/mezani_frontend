@@ -17,7 +17,6 @@ getWithSessions: async (branchId: string) => {
     })
     return res.data
   },
-
 }
 
 export const sessionsAPI = {
