@@ -1,6 +1,6 @@
 "use client"
-import React from "react"
-import { useState, useEffect, useCallback } from "react"
+
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/useAuth"
 import { useBranch } from "@/hooks/useBranch"
@@ -66,10 +66,9 @@ function buildMenuUrl(tableId: string): string {
   return `${base}/menu/${tableId}`
 }
 
+// Only ever called inside useEffect / event handlers, so localStorage is safe.
 function getToken(): string {
-  return typeof window !== "undefined"
-    ? (localStorage.getItem("access_token") ?? "")
-    : ""
+  return localStorage.getItem("access_token") ?? ""
 }
 
 function getMinutesLeft(expiresAt?: Date) {
@@ -93,12 +92,21 @@ function getOrderElapsed(createdAt: string) {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const orderStatusConfig: Record<string, { label: string; class: string }> = {
+const ORDER_STATUS_CONFIG: Record<string, { label: string; class: string }> = {
   pending:   { label: "New",            class: "bg-orange-100 text-orange-700" },
   accepted:  { label: "Accepted",       class: "bg-blue-100 text-blue-700" },
   preparing: { label: "Preparing",      class: "bg-yellow-100 text-yellow-700" },
   ready:     { label: "Ready to serve", class: "bg-emerald-100 text-emerald-700" },
 }
+
+// ─── QRCode wrapper ───────────────────────────────────────────────────────────
+// react-qr-code types its export via SVGProps which conflicts with React's JSX
+// props check (TS2607). Casting to a plain FC with only the props we use fixes it.
+const QRCodeWrapper = QRCode as unknown as React.FC<{
+  value: string
+  size?: number
+  style?: React.CSSProperties
+}>
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -133,51 +141,31 @@ function TabButton({
   )
 }
 
-// ─── QRCode wrapper to fix TS2607 (react-qr-code JSX props conflict) ──────────
-
-const QRCodeWrapper = QRCode as unknown as React.FC<{
-  value: string
-  size?: number
-  style?: React.CSSProperties
-}>
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WaiterPage() {
   const { logout } = useAuth()
   const { branchId } = useBranch()
 
-  const [tab, setTab] = useState<"tables" | "orders">("tables")
-  const [tables, setTables] = useState<Table[]>([])
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const [ordersLoading, setOrdersLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedTable, setSelectedTable] = useState<Table | null>(null)
+  const [tab, setTab]                               = useState<"tables" | "orders">("tables")
+  const [tables, setTables]                         = useState<Table[]>([])
+  const [orders, setOrders]                         = useState<Order[]>([])
+  const [loading, setLoading]                       = useState(true)
+  const [ordersLoading, setOrdersLoading]           = useState(true)
+  const [error, setError]                           = useState<string | null>(null)
+  const [selectedTable, setSelectedTable]           = useState<Table | null>(null)
   const [showActivateDialog, setShowActivateDialog] = useState(false)
-  const [showQRDialog, setShowQRDialog] = useState(false)
-  const [duration, setDuration] = useState("120")
-  const [actionLoading, setActionLoading] = useState(false)
+  const [showQRDialog, setShowQRDialog]             = useState(false)
+  const [duration, setDuration]                     = useState("120")
+  const [actionLoading, setActionLoading]           = useState(false)
 
-  // FIX: Use a mounted flag to drive client-only ticks, avoiding hydration mismatch
-  // from Date.now() differences between SSR and client render.
+  // Gates any Date.now()-derived rendering so SSR and the first client paint are
+  // identical (empty strings / zero widths). Flips to true in the mount effect.
   const [isMounted, setIsMounted] = useState(false)
+  // Incremented every 30 s to re-render elapsed timers without a full refetch.
   const [, forceUpdate] = useState(0)
 
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  // Live tick for elapsed/countdown timers — only after mount to avoid hydration mismatch
-  useEffect(() => {
-    if (!isMounted) return
-    const t = setInterval(() => forceUpdate((n) => n + 1), 30000)
-    return () => clearInterval(t)
-  }, [isMounted])
-
-  // ── Fetch tables ─────────────────────────────────────────────────────────────
-  // Uses /api/waiter/tables — scoped to branch_id from JWT,
-  // requires create_orders permission which waiters already have.
+  // ── Fetch callbacks ───────────────────────────────────────────────────────────
 
   const fetchTables = useCallback(async () => {
     if (!branchId) return
@@ -198,7 +186,7 @@ export default function WaiterPage() {
         status: t.status as TableStatus,
         sessionId: t.session_id,
         expiresAt: t.expires_at ? new Date(t.expires_at) : undefined,
-        openedAt: t.created_at ? new Date(t.created_at) : undefined,
+        openedAt:  t.created_at ? new Date(t.created_at) : undefined,
       })))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load tables")
@@ -206,10 +194,6 @@ export default function WaiterPage() {
       setLoading(false)
     }
   }, [branchId])
-
-  // ── Fetch orders ─────────────────────────────────────────────────────────────
-  // Uses /api/orders/recent — waiters have no permission restriction on this.
-  // Filters out served/paid so only active orders are shown.
 
   const fetchOrders = useCallback(async () => {
     if (!branchId) return
@@ -228,12 +212,34 @@ export default function WaiterPage() {
     }
   }, [branchId])
 
+  // Refs so the single mount effect always calls the latest callback version
+  // without needing to list them in its dep array (which would change its size).
+  const fetchTablesRef = useRef(fetchTables)
+  const fetchOrdersRef = useRef(fetchOrders)
+  useEffect(() => { fetchTablesRef.current = fetchTables }, [fetchTables])
+  useEffect(() => { fetchOrdersRef.current = fetchOrders }, [fetchOrders])
+
+  // Single mount effect — dep array is permanently [].
+  // • Marks isMounted so time-derived values render correctly client-side.
+  // • Fires the first fetch after localStorage is available (no empty-token risk).
+  // • Starts the 30 s data-polling and UI-tick intervals.
   useEffect(() => {
-    fetchTables()
-    fetchOrders()
-    const t = setInterval(() => { fetchTables(); fetchOrders() }, 30000)
-    return () => clearInterval(t)
-  }, [fetchTables, fetchOrders])
+    setIsMounted(true)
+    fetchTablesRef.current()
+    fetchOrdersRef.current()
+
+    const dataInterval = setInterval(() => {
+      fetchTablesRef.current()
+      fetchOrdersRef.current()
+    }, 30_000)
+
+    const tickInterval = setInterval(() => forceUpdate((n) => n + 1), 30_000)
+
+    return () => {
+      clearInterval(dataInterval)
+      clearInterval(tickInterval)
+    }
+  }, []) // must stay []
 
   // ── Session actions ───────────────────────────────────────────────────────────
 
@@ -247,13 +253,12 @@ export default function WaiterPage() {
     setActionLoading(true)
     try {
       await sessionsAPI.start(selectedTable.id, Number(duration))
-      await fetchTables()
+      await fetchTablesRef.current()
       setShowActivateDialog(false)
       setSelectedTable(null)
       setDuration("120")
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to start session"
-      setError(msg)
+      setError(err instanceof Error ? err.message : "Failed to start session")
     } finally {
       setActionLoading(false)
     }
@@ -263,7 +268,7 @@ export default function WaiterPage() {
     if (!table.sessionId) return
     try {
       await sessionsAPI.heartbeat(table.sessionId)
-      await fetchTables()
+      await fetchTablesRef.current()
     } catch {
       setError("Failed to extend session")
     }
@@ -273,15 +278,12 @@ export default function WaiterPage() {
     if (!table.sessionId) return
     try {
       await sessionsAPI.close(table.sessionId)
-      await fetchTables()
+      await fetchTablesRef.current()
     } catch {
       setError("Failed to close session")
     }
   }
 
-  // Uses /api/orders/:id/status — waiters have update_order_status permission.
-  // This is the single correct route; /api/waiter/orders/:id/status was removed
-  // as it was a redundant duplicate with a conflicting permission stack.
   const handleMarkServed = async (orderId: string) => {
     try {
       const res = await fetch(
@@ -296,7 +298,7 @@ export default function WaiterPage() {
         }
       )
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      await fetchOrders()
+      await fetchOrdersRef.current()
     } catch {
       setError("Failed to mark order as served")
     }
@@ -311,7 +313,11 @@ export default function WaiterPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
-  if (!branchId) {
+  // Both the server and client's first paint must render the same HTML.
+  // branchId comes from a hook that reads client-only state, so it is falsy on
+  // the server but may already be truthy on the client — causing a tree mismatch.
+  // Gating on !isMounted means both environments always render the spinner first.
+  if (!isMounted || !branchId) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
         <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
@@ -322,60 +328,51 @@ export default function WaiterPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] max-w-md mx-auto flex flex-col">
 
-{/* Header */}
-<div className="bg-white border-b border-zinc-200 px-5 py-4 sticky top-0 z-10">
-  <div className="flex items-center justify-between">
-    <div>
-      <h1 className="text-base font-bold text-zinc-900">
-        Waiter View
-      </h1>
+      {/* ── Header ── */}
+      <div className="bg-white border-b border-zinc-200 px-5 py-4 sticky top-0 z-10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-base font-bold text-zinc-900">Waiter View</h1>
+            {/* suppressHydrationWarning: counts are 0 on the server, real values on client */}
+            <p className="text-xs text-zinc-400 mt-0.5" suppressHydrationWarning>
+              {activeTables.length} active · {freeTables.length} free
+            </p>
+          </div>
+          <button
+            onClick={logout}
+            className="p-2 rounded-xl hover:bg-zinc-100 transition-colors text-zinc-400"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
 
-      {/* FIX: suppressHydrationWarning prevents hydration mismatch on
-          counts that differ between SSR (empty arrays) and first client render */}
-      <p className="text-xs text-zinc-400 mt-0.5" suppressHydrationWarning>
-        {activeTables.length} active · {freeTables.length} free
-      </p>
-    </div>
+        {expiringTables.length > 0 && (
+          <div className="mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <p className="text-xs font-medium text-amber-700">
+              Table {expiringTables.map((t) => t.tableNumber).join(", ")} expiring — extend or close
+            </p>
+          </div>
+        )}
 
-    <button
-      onClick={logout}
-      className="p-2 rounded-xl hover:bg-zinc-100 transition-colors text-zinc-400"
-    >
-      <LogOut className="w-4 h-4" />
-    </button>
-  </div>
+        {readyOrders.length > 0 && (
+          <div className="mt-2 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <p className="text-xs font-medium text-emerald-700">
+              {readyOrders.length} {readyOrders.length === 1 ? "order is" : "orders are"} ready to serve
+            </p>
+          </div>
+        )}
 
-  {expiringTables.length > 0 && (
-    <div className="mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+        {error && (
+          <div className="mt-2 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+            <p className="text-xs text-red-600">{error}</p>
+          </div>
+        )}
+      </div>
 
-      <p className="text-xs font-medium text-amber-700" suppressHydrationWarning>
-        Table {expiringTables.map((t) => t.tableNumber).join(", ")} expiring — extend or close
-      </p>
-    </div>
-  )}
-
-  {readyOrders.length > 0 && (
-    <div className="mt-2 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-
-      <p className="text-xs font-medium text-emerald-700" suppressHydrationWarning>
-        {readyOrders.length}{" "}
-        {readyOrders.length === 1 ? "order is" : "orders are"} ready to serve
-      </p>
-    </div>
-  )}
-
-  {error && (
-    <div className="mt-2 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-      <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-
-      <p className="text-xs text-red-600">{error}</p>
-    </div>
-  )}
-</div>
-
-      {/* Tabs */}
+      {/* ── Tabs ── */}
       <div className="bg-white border-b border-zinc-200 flex sticky top-[72px] z-10">
         <TabButton active={tab === "tables"} onClick={() => setTab("tables")}>
           <TableProperties className="w-4 h-4" />
@@ -391,10 +388,10 @@ export default function WaiterPage() {
         </TabButton>
       </div>
 
-      {/* Content */}
+      {/* ── Content ── */}
       <div className="flex-1 p-4 space-y-3 pb-8">
 
-        {/* ── TABLES TAB ── */}
+        {/* TABLES TAB */}
         {tab === "tables" && (
           <>
             {loading ? (
@@ -413,8 +410,9 @@ export default function WaiterPage() {
                   return rank[a.status] - rank[b.status] || a.tableNumber - b.tableNumber
                 })
                 .map((table) => {
-                  const minsLeft   = getMinutesLeft(table.expiresAt)
-                  const elapsed    = getElapsed(table.openedAt)
+                  // isMounted guard: return 0 / "" on server so output matches SSR
+                  const minsLeft   = isMounted ? getMinutesLeft(table.expiresAt) : 0
+                  const elapsed    = isMounted ? getElapsed(table.openedAt) : ""
                   const isCritical = table.status === "expiring"
 
                   return (
@@ -447,10 +445,8 @@ export default function WaiterPage() {
                             {table.status !== "free" && (
                               <span className={cn(
                                 "text-xs font-medium px-2 py-0.5 rounded-full",
-                                isCritical
-                                  ? "bg-amber-100 text-amber-700"
-                                  : "bg-emerald-100 text-emerald-700"
-                              )} suppressHydrationWarning>
+                                isCritical ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                              )}>
                                 {isCritical ? `${minsLeft}m left` : "Active"}
                               </span>
                             )}
@@ -459,9 +455,9 @@ export default function WaiterPage() {
                           {table.status !== "free" ? (
                             <div className="mt-1 space-y-1">
                               <div className="flex items-center gap-3 text-xs text-zinc-500">
-                                <span className="flex items-center gap-1" suppressHydrationWarning>
+                                <span className="flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
-                                  {isMounted ? elapsed : ""}
+                                  {elapsed}
                                 </span>
                               </div>
                               <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
@@ -470,7 +466,7 @@ export default function WaiterPage() {
                                     "h-full rounded-full transition-all",
                                     isCritical ? "bg-amber-500" : "bg-emerald-500"
                                   )}
-                                  style={{ width: isMounted ? `${Math.min((minsLeft / 120) * 100, 100)}%` : "0%" }}
+                                  style={{ width: `${Math.min((minsLeft / 120) * 100, 100)}%` }}
                                 />
                               </div>
                             </div>
@@ -520,7 +516,7 @@ export default function WaiterPage() {
           </>
         )}
 
-        {/* ── ORDERS TAB ── */}
+        {/* ORDERS TAB */}
         {tab === "orders" && (
           <>
             {ordersLoading ? (
@@ -540,7 +536,7 @@ export default function WaiterPage() {
                   return (rank[a.status] ?? 9) - (rank[b.status] ?? 9)
                 })
                 .map((order) => {
-                  const statusCfg = orderStatusConfig[order.status] ?? orderStatusConfig.pending
+                  const statusCfg = ORDER_STATUS_CONFIG[order.status] ?? ORDER_STATUS_CONFIG.pending
                   const isReady   = order.status === "ready"
                   return (
                     <div
@@ -557,7 +553,7 @@ export default function WaiterPage() {
                           </div>
                           <div>
                             <p className="text-sm font-bold text-zinc-900">Table {order.table_number}</p>
-                            <p className="text-xs text-zinc-400" suppressHydrationWarning>
+                            <p className="text-xs text-zinc-400">
                               {isMounted ? getOrderElapsed(order.created_at) : ""}
                             </p>
                           </div>
@@ -598,7 +594,7 @@ export default function WaiterPage() {
         )}
       </div>
 
-      {/* Activate Dialog */}
+      {/* ── Activate Dialog ── */}
       <Dialog open={showActivateDialog} onOpenChange={setShowActivateDialog}>
         <DialogContent className="rounded-2xl max-w-sm mx-4">
           <DialogHeader>
@@ -645,17 +641,15 @@ export default function WaiterPage() {
         </DialogContent>
       </Dialog>
 
-      {/* QR Dialog */}
+      {/* ── QR Dialog ── */}
       <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
-        <DialogContent className="rounded-2xl max-w-sm mx-4">
-          <DialogHeader>
+<DialogContent className="rounded-2xl max-w-sm mx-4" aria-describedby={undefined}>      
+      <DialogHeader>
             <DialogTitle>QR Code — Table {selectedTable?.tableNumber}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-4 py-4">
             {selectedTable && (
               <div className="bg-white p-4 rounded-2xl border border-zinc-200">
-                {/* FIX: Cast through unknown to avoid TS2607 caused by react-qr-code's
-                    SVGProps-based typing conflicting with React's JSX element props check */}
                 <QRCodeWrapper
                   value={buildMenuUrl(selectedTable.id)}
                   size={180}
