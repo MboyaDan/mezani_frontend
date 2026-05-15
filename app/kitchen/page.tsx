@@ -1,39 +1,82 @@
 "use client"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { ChefHat, Clock, ArrowLeft, Bell, Wifi, WifiOff } from "lucide-react"
+import { ChefHat, Clock, ArrowLeft, Wifi, WifiOff, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { useKitchenOrders, KitchenOrder } from "@/hooks/useKitchenOrders"
+import { useBranch } from "@/hooks/useBranch"
 
-const statusColumns = [
-  { key: "pending", label: "New Order", color: "bg-orange-500", textColor: "text-orange-500", border: "border-orange-200", bg: "bg-orange-50", icon: "🔔" },
-  { key: "accepted", label: "Accepted", color: "bg-blue-500", textColor: "text-blue-500", border: "border-blue-200", bg: "bg-blue-50", icon: "✅" },
-  { key: "preparing", label: "Preparing", color: "bg-yellow-500", textColor: "text-yellow-600", border: "border-yellow-200", bg: "bg-yellow-50", icon: "🔥" },
-  { key: "ready", label: "Ready", color: "bg-emerald-500", textColor: "text-emerald-600", border: "border-emerald-200", bg: "bg-emerald-50", icon: "✓" },
+const statusColumns: {
+  key: string
+  label: string
+  accent: string
+  strip: string
+  badgeBg: string
+  badgeText: string
+  actionText: string
+  actionHover: string
+}[] = [
+  {
+    key: "pending",
+    label: "Incoming",
+    accent: "text-amber-600",
+    strip: "bg-amber-400",
+    badgeBg: "bg-amber-400",
+    badgeText: "text-amber-900",
+    actionText: "text-amber-700",
+    actionHover: "hover:bg-amber-50",
+  },
+  {
+    key: "accepted",
+    label: "Accepted",
+    accent: "text-sky-600",
+    strip: "bg-sky-400",
+    badgeBg: "bg-sky-500",
+    badgeText: "text-white",
+    actionText: "text-sky-700",
+    actionHover: "hover:bg-sky-50",
+  },
+  {
+    key: "preparing",
+    label: "On the Pass",
+    accent: "text-orange-600",
+    strip: "bg-orange-400",
+    badgeBg: "bg-orange-400",
+    badgeText: "text-orange-900",
+    actionText: "text-orange-700",
+    actionHover: "hover:bg-orange-50",
+  },
+  {
+    key: "ready",
+    label: "Ready",
+    accent: "text-emerald-600",
+    strip: "bg-emerald-400",
+    badgeBg: "bg-emerald-500",
+    badgeText: "text-white",
+    actionText: "text-emerald-700",
+    actionHover: "hover:bg-emerald-50",
+  },
 ]
 
 const actionLabel: Record<string, string> = {
   pending: "Accept",
-  accepted: "Start Preparing",
+  accepted: "Start Prep",
   preparing: "Mark Ready",
-  ready: "Mark Served",
+  ready: "Served",
 }
 
 function useElapsed(date: Date) {
-  const [elapsed, setElapsed] = useState("")
+  const [mins, setMins] = useState(0)
   useEffect(() => {
-    const update = () => {
-      const mins = Math.floor((Date.now() - date.getTime()) / 60000)
-      setElapsed(mins < 1 ? "just now" : `${mins}m ago`)
-    }
+    const update = () => setMins(Math.floor((Date.now() - date.getTime()) / 60000))
     update()
     const t = setInterval(update, 30000)
     return () => clearInterval(t)
   }, [date])
-  return elapsed
+  return mins
 }
 
-function OrderCard({
+function TicketCard({
   order,
   isNew,
   onAdvance,
@@ -42,89 +85,92 @@ function OrderCard({
   isNew: boolean
   onAdvance: (id: string, status: string) => void
 }) {
-  const elapsed = useElapsed(order.createdAt)
-  const [isUrgent, setIsUrgent] = useState(false)
-
-  useEffect(() => {
-    const check = () => {
-      const mins = Math.floor((Date.now() - order.createdAt.getTime()) / 60000)
-      setIsUrgent(mins >= 15 && order.status === "pending")
-    }
-    check()
-    const t = setInterval(check, 30000)
-    return () => clearInterval(t)
-  }, [order.createdAt, order.status])
+  const mins = useElapsed(order.createdAt)
+  const isUrgent = mins >= 15 && order.status === "pending"
+  const col = statusColumns.find((c) => c.key === order.status)
 
   return (
-    <div className={cn(
-      "bg-white rounded-2xl border shadow-sm p-4 space-y-3 transition-all duration-300",
-      isNew && "ring-2 ring-orange-400 ring-offset-1 animate-pulse",
-      isUrgent ? "border-red-300 ring-1 ring-red-200" : "border-zinc-200",
-      "hover:shadow-md"
-    )}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#0f172a] text-white text-sm font-bold flex items-center justify-center shrink-0">
-            {order.tableNumber}
-          </div>
-          <div>
-            <p className="font-semibold text-zinc-900 text-sm">Table {order.tableNumber}</p>
-            <p className="text-xs text-zinc-400">{order.items.length} items</p>
-          </div>
+    <div
+      className={cn(
+        "relative bg-white border rounded-lg overflow-hidden transition-shadow duration-200 hover:shadow-md",
+        isNew ? "border-amber-300 shadow-amber-100 shadow-md" : "border-zinc-200",
+        isUrgent && "border-red-300"
+      )}
+    >
+      {/* Left status strip */}
+      <div className={cn("absolute left-0 top-0 bottom-0 w-1", col?.strip ?? "bg-zinc-200")} />
+
+      {/* Header */}
+      <div className="pl-4 pr-3 pt-3 pb-2.5 flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] font-bold tracking-widest uppercase text-zinc-400 leading-none">
+            TBL
+          </span>
+          <span className="font-mono text-2xl font-black text-zinc-900 leading-none tabular-nums">
+            {String(order.tableNumber).padStart(2, "0")}
+          </span>
         </div>
-        <div className={cn(
-          "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full",
-          isUrgent ? "bg-red-100 text-red-600" : "bg-zinc-100 text-zinc-500"
-        )}>
-          <Clock className="w-3 h-3" />
-          {elapsed}
+
+        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+          {isUrgent && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
+          <span
+            className={cn(
+              "font-mono text-xs tabular-nums font-semibold",
+              isUrgent ? "text-red-500" : "text-zinc-400"
+            )}
+          >
+            {mins < 1 ? "now" : `${mins}m`}
+          </span>
         </div>
       </div>
 
-      <div className="space-y-1.5">
+      {/* Perforation line */}
+      <div className="ml-4 mr-3 border-t border-dashed border-zinc-200" />
+
+      {/* Items */}
+      <div className="pl-4 pr-3 py-2.5 space-y-1.5">
         {order.items.map((item, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className="w-5 h-5 rounded-md bg-zinc-100 text-zinc-600 text-xs font-bold flex items-center justify-center shrink-0">
-              {item.qty}
+          <div key={i} className="flex items-baseline gap-2">
+            <span className="font-mono text-sm font-bold text-zinc-900 tabular-nums w-5 shrink-0">
+              {item.qty}×
             </span>
-            <span className="text-sm text-zinc-700">{item.name}</span>
+            <span className="text-sm text-zinc-700 leading-snug">{item.name}</span>
           </div>
         ))}
       </div>
 
+      {/* Note */}
       {order.note && (
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          <span className="text-sm">📝</span>
-          <p className="text-xs text-amber-800">{order.note}</p>
+        <div className="ml-4 mr-3 mb-2.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 leading-snug">
+          {order.note}
         </div>
       )}
 
+      {/* Action */}
       {order.status !== "served" && (
-        <button
-          onClick={() => onAdvance(order.id, order.status)}
-          className={cn(
-            "w-full py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98]",
-            order.status === "pending"
-              ? "bg-orange-500 hover:bg-orange-600 text-white shadow-sm shadow-orange-200"
-              : order.status === "accepted"
-              ? "bg-blue-500 hover:bg-blue-600 text-white shadow-sm shadow-blue-200"
-              : order.status === "preparing"
-              ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-sm shadow-yellow-200"
-              : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm shadow-emerald-200"
-          )}
-        >
-          {actionLabel[order.status]}
-        </button>
+        <>
+          <div className="ml-4 mr-3 border-t border-dashed border-zinc-200" />
+          <button
+            onClick={() => onAdvance(order.id, order.status)}
+            className={cn(
+              "w-full pl-4 pr-3 py-2.5 text-left text-xs font-bold uppercase tracking-wider transition-colors duration-150",
+              col?.actionText,
+              col?.actionHover
+            )}
+          >
+            {actionLabel[order.status]} →
+          </button>
+        </>
       )}
     </div>
   )
 }
 
-export default function KitchenPage() {
-  const { orders, connected, newOrderIds, advanceOrder } = useKitchenOrders()
-  const newOrderCount = orders.filter((o) => o.status === "pending").length
+function KitchenDisplay({ branchId }: { branchId: string }) {
+  const { orders, connected, newOrderIds, advanceOrder } = useKitchenOrders(branchId)
+  const pendingCount = orders.filter((o) => o.status === "pending").length
 
-  const [timeStr, setTimeStr] = useState("")
+  const [timeStr, setTimeStr] = useState<string | null>(null)
   useEffect(() => {
     const update = () =>
       setTimeStr(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
@@ -134,116 +180,120 @@ export default function KitchenPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
-      <header className="h-14 bg-white border-b border-zinc-200 flex items-center justify-between px-6 sticky top-0 z-10">
+    <div className="min-h-screen bg-zinc-50" suppressHydrationWarning>
+      {/* Header */}
+      <header className="h-12 bg-white border-b border-zinc-200 flex items-center justify-between px-5 sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors">
-            <ArrowLeft className="w-4 h-4 text-zinc-500" />
+          <Link
+            href="/dashboard"
+            className="p-1.5 -ml-1.5 rounded hover:bg-zinc-100 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 text-zinc-400" />
           </Link>
-          <div className="flex items-center gap-2">
-            <ChefHat className="w-5 h-5 text-orange-500" />
-            <span className="font-semibold text-zinc-900">Kitchen Display</span>
+
+          <div className="flex items-center gap-2 border-r border-zinc-200 pr-3">
+            <ChefHat className="w-4 h-4 text-zinc-400" />
+            <span className="text-sm font-semibold text-zinc-800 tracking-tight">Kitchen</span>
           </div>
-          {/* WebSocket connection indicator */}
-          <div className={cn(
-            "flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full",
-            connected
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-red-100 text-red-600"
-          )}>
-            {connected
-              ? <Wifi className="w-3 h-3" />
-              : <WifiOff className="w-3 h-3" />
-            }
-            {connected ? "Live" : "Reconnecting..."}
+
+          <div
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium",
+              connected ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-500"
+            )}
+          >
+            {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+            {connected ? "Live" : "Offline"}
           </div>
+
+          {pendingCount > 0 && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-400 text-amber-900 rounded text-xs font-bold font-mono">
+              {pendingCount} incoming
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-3">
-          {newOrderCount > 0 && (
-            <div className="flex items-center gap-2 bg-orange-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full animate-pulse">
-              <Bell className="w-3 h-3" />
-              {newOrderCount} new {newOrderCount === 1 ? "order" : "orders"}
-            </div>
-          )}
-          {timeStr && (
-            <div className="flex items-center gap-1.5 text-sm text-zinc-500 bg-zinc-100 px-3 py-1.5 rounded-full">
-              <Clock className="w-3.5 h-3.5" />
-              {timeStr}
-            </div>
-          )}
-        </div>
+        {timeStr && (
+          <span className="font-mono text-xs text-zinc-400 tabular-nums">{timeStr}</span>
+        )}
       </header>
 
       {/* Empty state */}
       {orders.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-56px)]">
-          <div className="text-center space-y-3">
-            <div className="w-14 h-14 rounded-2xl bg-zinc-100 flex items-center justify-center mx-auto">
-              <ChefHat className="w-7 h-7 text-zinc-300" />
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-48px)]">
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 rounded-xl bg-zinc-100 flex items-center justify-center mx-auto">
+              <ChefHat className="w-6 h-6 text-zinc-300" />
             </div>
-            <p className="text-sm font-medium text-zinc-500">No active orders</p>
-            <p className="text-xs text-zinc-400">
-              {connected ? "Waiting for new orders..." : "Connecting to kitchen..."}
+            <p className="text-sm text-zinc-400 font-medium">No active orders</p>
+            <p className="text-xs text-zinc-300">
+              {connected ? "Waiting for orders…" : "Reconnecting…"}
             </p>
           </div>
         </div>
       )}
 
-      <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+      {/* Board */}
+      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
         {statusColumns.map((col) => {
           const colOrders = orders.filter((o) => o.status === col.key)
-          if (colOrders.length === 0 && orders.length > 0) {
-            return (
-              <div key={col.key} className="space-y-3">
-                <div className={cn(
-                  "flex items-center justify-between px-4 py-2.5 rounded-xl border",
-                  col.bg, col.border
-                )}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">{col.icon}</span>
-                    <span className={cn("text-sm font-semibold", col.textColor)}>{col.label}</span>
-                  </div>
-                  <span className={cn(
-                    "text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center text-white",
-                    col.color
-                  )}>0</span>
-                </div>
-                <div className="bg-white rounded-2xl border border-dashed border-zinc-200 p-6 text-center">
-                  <p className="text-xs text-zinc-300 font-medium">No orders</p>
-                </div>
-              </div>
-            )
-          }
           return (
-            <div key={col.key} className="space-y-3">
-              <div className={cn(
-                "flex items-center justify-between px-4 py-2.5 rounded-xl border",
-                col.bg, col.border
-              )}>
-                <div className="flex items-center gap-2">
-                  <span className="text-base">{col.icon}</span>
-                  <span className={cn("text-sm font-semibold", col.textColor)}>{col.label}</span>
-                </div>
-                <span className={cn(
-                  "text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center text-white",
-                  col.color
-                )}>
+            <div key={col.key}>
+              {/* Column header */}
+              <div className="flex items-center justify-between mb-3 px-0.5">
+                <span className={cn("text-xs font-bold uppercase tracking-widest", col.accent)}>
+                  {col.label}
+                </span>
+                <span
+                  className={cn(
+                    "font-mono text-xs font-bold tabular-nums w-5 h-5 rounded-full flex items-center justify-center",
+                    colOrders.length > 0
+                      ? cn(col.badgeBg, col.badgeText)
+                      : "bg-zinc-100 text-zinc-400"
+                  )}
+                >
                   {colOrders.length}
                 </span>
               </div>
-              {colOrders.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  isNew={newOrderIds.has(order.id)}
-                  onAdvance={advanceOrder}
-                />
-              ))}
+
+              {colOrders.length === 0 ? (
+                <div className="border border-dashed border-zinc-200 rounded-lg py-6 text-center">
+                  <p className="text-xs font-mono uppercase tracking-widest text-zinc-300">
+                    clear
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {colOrders.map((order) => (
+                    <TicketCard
+                      key={order.id}
+                      order={order}
+                      isNew={newOrderIds.has(order.id)}
+                      onAdvance={advanceOrder}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )
         })}
       </div>
     </div>
   )
+}
+
+export default function KitchenPage() {
+  const { branchId } = useBranch()
+
+  if (!branchId) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+        <p className="text-xs font-mono text-zinc-400 uppercase tracking-widest">
+          Connecting…
+        </p>
+      </div>
+    )
+  }
+
+  return <KitchenDisplay branchId={branchId} />
 }

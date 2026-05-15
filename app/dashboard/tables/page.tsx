@@ -455,20 +455,25 @@ export default function TablesPage() {
     }
   }
 
-  const handleAddTable = async () => {
-    if (!newTableNumber || !branchId) return
-    setActionLoading(true)
-    try {
-      await tablesAPI.create(branchId, Number(newTableNumber))
-      await fetchTables()
-      setShowAddDialog(false)
-      setNewTableNumber("")
-    } catch (err: unknown) {
-      setError(extractErrorMessage(err, "Failed to add table"))
-    } finally {
-      setActionLoading(false)
+const handleAddTable = async () => {
+  if (!newTableNumber || !branchId) return
+  setActionLoading(true)
+  try {
+    await tablesAPI.create(branchId, Number(newTableNumber))
+    await fetchTables()
+    setShowAddDialog(false)
+    setNewTableNumber("")
+  } catch (err: unknown) {
+    const raw = extractErrorMessage(err, "")
+    if (raw.includes("unique_table_per_branch") || raw.includes("23505")) {
+      setError(`Table ${newTableNumber} already exists in this branch`)
+    } else {
+      setError(raw || "Failed to add table")
     }
+  } finally {
+    setActionLoading(false)
   }
+}
 
   // ── Derived state ────────────────────────────────────────────────────────────
 
@@ -673,22 +678,32 @@ export default function TablesPage() {
       </Dialog>
 
       {/* Add table dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="rounded-2xl max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Add Table</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div className="space-y-2">
-              <Label>Table Number</Label>
-              <Input
-                type="number"
-                placeholder="e.g. 13"
-                value={newTableNumber}
-                onChange={(e) => setNewTableNumber(e.target.value)}
-                className="rounded-xl"
-              />
-            </div>
+  {/* Add table dialog */}
+<Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+  <DialogContent className="rounded-2xl max-w-sm">
+    <DialogHeader>
+      <DialogTitle>Add Table</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4 mt-2">
+      {error && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
+          <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+      <div className="space-y-2">
+        <Label>Table Number</Label>
+        <Input
+          type="number"
+          placeholder="e.g. 13"
+          value={newTableNumber}
+          onChange={(e) => {
+            setNewTableNumber(e.target.value)
+            setError(null) // clear error when user starts typing
+          }}
+          className="rounded-xl"
+        />
+      </div>
             <div className="flex gap-3">
               <Button
                 variant="outline"
