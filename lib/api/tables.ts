@@ -2,14 +2,14 @@ import API from "@/lib/client"
 import { TableSession } from "@/types"
 
 export const tablesAPI = {
-list: async (branchId: string) => {
-  const res = await API.get(`/owner/tables?branch_id=${branchId}`)
-  return res.data
-},
+  list: async (branchId: string) => {
+    const res = await API.get(`/manager/tables?branch_id=${branchId}`) 
+    return res.data
+  },
 
-getWithSessions: async (branchId: string) => {
-  return tablesAPI.list(branchId)
-},
+  getWithSessions: async (branchId: string) => {
+    return tablesAPI.list(branchId)
+  },
 
   create: async (branchId: string, tableNumber: number) => {
     const res = await API.post(`/owner/branches/${branchId}/tables`, {
@@ -18,7 +18,6 @@ getWithSessions: async (branchId: string) => {
     return res.data
   },
 }
-
 export const sessionsAPI = {
   start: async (tableId: string, durationMinutes: number) => {
     const res = await API.post("/table-session/start", {

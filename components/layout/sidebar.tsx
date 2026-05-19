@@ -19,7 +19,7 @@ const navItems = [
   { label: "Orders",     href: "/dashboard/orders",     icon: ShoppingBag,     roles: ["owner", "manager", "waiter"] },
   { label: "Menu",       href: "/dashboard/menu",       icon: UtensilsCrossed, roles: ["owner", "manager"] },
   { label: "Tables",     href: "/dashboard/tables",     icon: TableProperties, roles: ["owner", "manager", "waiter"] },
-  { label: "Staff",      href: "/dashboard/staff",      icon: Users,           roles: ["owner"] },
+{ label: "Staff", href: "/dashboard/staff", icon: Users, roles: ["owner", "manager"] },,
   { label: "Branches",   href: "/dashboard/branches",   icon: Network,         roles: ["owner"] },
   { label: "Inventory",  href: "/dashboard/inventory",  icon: Package,         roles: ["owner", "manager"] },
   { label: "Analytics",  href: "/dashboard/analytics",  icon: BarChart3,       roles: ["owner", "manager"] },
@@ -94,7 +94,7 @@ export function Sidebar() {
       </nav>
 
       {/* Branch Selector */}
-      {(user?.role === "owner" || user?.role === "manager") && (
+      {(user?.role === "owner") && (
         <div className="px-3 pb-2 border-t border-white/10 pt-3">
           <p className="text-xs text-zinc-500 px-3 mb-1">Current Branch</p>
           <BranchSelector

@@ -13,6 +13,7 @@ import {
 import { tablesAPI, sessionsAPI } from "@/lib/api/tables"
 import { useBranch } from "@/hooks/useBranch"
 import QRCode from "react-qr-code"
+import { useUser } from "@/hooks/useUser"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -341,6 +342,8 @@ function TableCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TablesPage() {
+  const { user } = useUser()
+const isOwner = user?.role === "owner"
   const { branchId } = useBranch()
   const [tables, setTables] = useState<Table[]>([])
   const [loading, setLoading] = useState(true)
@@ -544,6 +547,7 @@ const handleAddTable = async () => {
               </button>
             )}
 
+{isOwner &&(
             <Button
               onClick={() => setShowAddDialog(true)}
               className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 shadow-sm shadow-orange-200"
@@ -551,6 +555,7 @@ const handleAddTable = async () => {
               <Plus className="w-4 h-4" />
               Add Table
             </Button>
+           ) }
           </div>
         </div>
 

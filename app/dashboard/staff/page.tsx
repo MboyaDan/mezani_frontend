@@ -15,6 +15,7 @@ import {
 import { staffAPI } from "@/lib/api/staff"
 import { branchesAPI } from "@/lib/api/branches"
 import { useBranch } from "@/hooks/useBranch"
+import { useUser } from "@/hooks/useUser"
 import { Branch } from "@/types"
 
 const roleConfig: Record<string, { color: string; bg: string; icon: any }> = {
@@ -62,15 +63,14 @@ function getPasswordStrength(password: string): StrengthResult {
   if (/[0-9]/.test(password)) score++ ; else tips.push("a number")
   if (/[^A-Za-z0-9]/.test(password)) score++ ; else tips.push("a special character")
 
-  // Cap at 4
   const capped = Math.min(score, 4) as 0 | 1 | 2 | 3 | 4
 
   const levels: Record<number, Omit<StrengthResult, "score" | "tips">> = {
-    0: { label: "",          color: "text-zinc-400",   barColor: "bg-zinc-200" },
-    1: { label: "Too short", color: "text-red-500",    barColor: "bg-red-400"  },
-    2: { label: "Weak",      color: "text-orange-500", barColor: "bg-orange-400" },
-    3: { label: "Good",      color: "text-yellow-600", barColor: "bg-yellow-400" },
-    4: { label: "Strong",    color: "text-emerald-600",barColor: "bg-emerald-500"},
+    0: { label: "",          color: "text-zinc-400",    barColor: "bg-zinc-200"    },
+    1: { label: "Too short", color: "text-red-500",     barColor: "bg-red-400"     },
+    2: { label: "Weak",      color: "text-orange-500",  barColor: "bg-orange-400"  },
+    3: { label: "Good",      color: "text-yellow-600",  barColor: "bg-yellow-400"  },
+    4: { label: "Strong",    color: "text-emerald-600", barColor: "bg-emerald-500" },
   }
 
   return { score: capped, tips, ...levels[capped] }
@@ -93,7 +93,6 @@ function PasswordField({
     <div className="space-y-2">
       <Label>Temporary Password</Label>
 
-      {/* Input + toggle */}
       <div className="relative">
         <Input
           type={visible ? "text" : "password"}
@@ -116,10 +115,8 @@ function PasswordField({
         </button>
       </div>
 
-      {/* Strength bar — only shown when the user has typed something */}
       {value.length > 0 && (
         <div className="space-y-1.5">
-          {/* 4 segment bar */}
           <div className="flex gap-1">
             {[1, 2, 3, 4].map((seg) => (
               <div
@@ -131,8 +128,6 @@ function PasswordField({
               />
             ))}
           </div>
-
-          {/* Label + tips */}
           <div className="flex items-start justify-between gap-2">
             {strength.label && (
               <span className={cn("text-xs font-medium", strength.color)}>
@@ -151,7 +146,6 @@ function PasswordField({
         </div>
       )}
 
-      {/* Validation error */}
       {error && (
         <p className="text-xs text-red-500 flex items-center gap-1">
           <AlertCircle className="w-3 h-3" /> {error}
@@ -164,6 +158,11 @@ function PasswordField({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function StaffPage() {
   const { branchId } = useBranch()
+  const { user } = useUser()
+
+  // ✅ Only owners can add/delete staff
+  const isOwner = user?.role === "owner"
+
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(true)
@@ -174,7 +173,6 @@ export default function StaffPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [success, setSuccess] = useState<string | null>(null)
 
-  // ✅ Default branch_id to the currently active branch, not branches[0]
   const [form, setForm] = useState({
     name: "", email: "", password: "", role: "waiter",
     branch_id: branchId ?? "",
@@ -195,15 +193,18 @@ export default function StaffPage() {
 
   useEffect(() => {
     fetchStaff()
-    branchesAPI.list().then((data) => {
-      setBranches(data)
-      // ✅ Only set branch_id from list if we don't already have one from useBranch()
-      setForm((prev) => ({
-        ...prev,
-        branch_id: prev.branch_id || data[0]?.ID || "",
-      }))
-    }).catch(() => {})
-  }, [fetchStaff])
+    // ✅ Only owners need the branch list (for the Add Staff dialog)
+    // Managers can view staff but not add them, so skip this call entirely
+    if (isOwner) {
+      branchesAPI.list().then((data) => {
+        setBranches(data)
+        setForm((prev) => ({
+          ...prev,
+          branch_id: prev.branch_id || data[0]?.ID || "",
+        }))
+      }).catch(() => {})
+    }
+  }, [fetchStaff, isOwner])
 
   // ✅ Keep form in sync if branchId changes (e.g. branch switch)
   useEffect(() => {
@@ -223,7 +224,6 @@ export default function StaffPage() {
     if (!form.password) {
       errors.password = "Password is required"
     } else if (form.password.length < 8) {
-      // ✅ Raised from 6 to 8 to match strength meter
       errors.password = "Password must be at least 8 characters"
     }
     if (!form.branch_id) errors.branch_id = "Please select a branch"
@@ -246,7 +246,6 @@ export default function StaffPage() {
       await staffAPI.create(form)
       setSuccess("Staff member created successfully")
       setShowDialog(false)
-      // ✅ Reset to current branch, not branches[0]
       setForm({ name: "", email: "", password: "", role: "waiter", branch_id: branchId ?? "" })
       setFieldErrors({})
       await fetchStaff()
@@ -300,13 +299,16 @@ export default function StaffPage() {
             >
               <RefreshCw className="w-4 h-4 text-zinc-500" />
             </button>
-            <Button
-              onClick={handleOpenDialog}
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 shadow-sm shadow-orange-200"
-            >
-              <Plus className="w-4 h-4" />
-              Add Staff
-            </Button>
+            {/* ✅ Only owners see the Add Staff button */}
+            {isOwner && (
+              <Button
+                onClick={handleOpenDialog}
+                className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 shadow-sm shadow-orange-200"
+              >
+                <Plus className="w-4 h-4" />
+                Add Staff
+              </Button>
+            )}
           </div>
         </div>
 
@@ -339,7 +341,9 @@ export default function StaffPage() {
               <Users className="w-6 h-6 text-zinc-300" />
             </div>
             <p className="text-sm font-medium text-zinc-500">No staff yet</p>
-            <p className="text-xs text-zinc-400 mt-1">Add your first staff member to get started</p>
+            <p className="text-xs text-zinc-400 mt-1">
+              {isOwner ? "Add your first staff member to get started" : "No staff assigned to this branch yet"}
+            </p>
           </div>
         )}
 
@@ -366,16 +370,19 @@ export default function StaffPage() {
                           <p className="text-xs text-zinc-400 mt-0.5">{member.Email}</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDelete(member.ID)}
-                        disabled={deleteId === member.ID}
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                      >
-                        {deleteId === member.ID
-                          ? <Loader2 className="w-4 h-4 animate-spin" />
-                          : <Trash2 className="w-4 h-4" />
-                        }
-                      </button>
+                      {/* ✅ Only owners see the delete button */}
+                      {isOwner && (
+                        <button
+                          onClick={() => handleDelete(member.ID)}
+                          disabled={deleteId === member.ID}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                        >
+                          {deleteId === member.ID
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <Trash2 className="w-4 h-4" />
+                          }
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between mt-4">
@@ -399,118 +406,120 @@ export default function StaffPage() {
         )}
       </div>
 
-      {/* Add Staff Dialog */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="rounded-2xl max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Staff Member</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
+      {/* Add Staff Dialog — only rendered for owners */}
+      {isOwner && (
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent className="rounded-2xl max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add Staff Member</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-2">
 
-            {/* Full Name */}
-            <div className="space-y-1.5">
-              <Label>Full Name</Label>
-              <Input
-                placeholder="e.g. James Ochieng"
-                value={form.name}
-                onChange={(e) => handleChange("name", e.target.value)}
-                className={cn("rounded-xl", fieldErrors.name && "border-red-400 focus-visible:ring-red-300")}
-              />
-              {fieldErrors.name && (
-                <p className="text-xs text-red-500 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> {fieldErrors.name}
-                </p>
-              )}
-            </div>
-
-            {/* Email */}
-            <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                placeholder="james@restaurant.com"
-                value={form.email}
-                onChange={(e) => handleChange("email", e.target.value)}
-                className={cn("rounded-xl", fieldErrors.email && "border-red-400 focus-visible:ring-red-300")}
-              />
-              {fieldErrors.email && (
-                <p className="text-xs text-red-500 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> {fieldErrors.email}
-                </p>
-              )}
-            </div>
-
-            {/* Password with strength meter */}
-            <PasswordField
-              value={form.password}
-              onChange={(v) => handleChange("password", v)}
-              error={fieldErrors.password}
-            />
-
-            {/* Role & Branch */}
-            <div className="grid grid-cols-2 gap-3">
+              {/* Full Name */}
               <div className="space-y-1.5">
-                <Label>Role</Label>
-                <select
-                  value={form.role}
-                  onChange={(e) => handleChange("role", e.target.value)}
-                  className="w-full border border-zinc-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-300"
-                >
-                  {["manager", "waiter", "kitchen", "cashier"].map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Branch</Label>
-                <select
-                  value={form.branch_id}
-                  onChange={(e) => handleChange("branch_id", e.target.value)}
-                  className={cn(
-                    "w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-300",
-                    fieldErrors.branch_id ? "border-red-400" : "border-zinc-200"
-                  )}
-                >
-                  {branches.map((b) => (
-                    <option key={b.ID} value={b.ID}>{b.Name}</option>
-                  ))}
-                </select>
-                {fieldErrors.branch_id && (
+                <Label>Full Name</Label>
+                <Input
+                  placeholder="e.g. James Ochieng"
+                  value={form.name}
+                  onChange={(e) => handleChange("name", e.target.value)}
+                  className={cn("rounded-xl", fieldErrors.name && "border-red-400 focus-visible:ring-red-300")}
+                />
+                {fieldErrors.name && (
                   <p className="text-xs text-red-500 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" /> {fieldErrors.branch_id}
+                    <AlertCircle className="w-3 h-3" /> {fieldErrors.name}
                   </p>
                 )}
               </div>
-            </div>
 
-            {/* General API error inside dialog */}
-            {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                <p className="text-xs text-red-600">{error}</p>
+              {/* Email */}
+              <div className="space-y-1.5">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  placeholder="james@restaurant.com"
+                  value={form.email}
+                  onChange={(e) => handleChange("email", e.target.value)}
+                  className={cn("rounded-xl", fieldErrors.email && "border-red-400 focus-visible:ring-red-300")}
+                />
+                {fieldErrors.email && (
+                  <p className="text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> {fieldErrors.email}
+                  </p>
+                )}
               </div>
-            )}
 
-            <div className="flex gap-3 pt-2">
-              <Button
-                variant="outline"
-                className="flex-1 rounded-xl"
-                onClick={() => setShowDialog(false)}
-                disabled={actionLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
-                onClick={handleAdd}
-                disabled={actionLoading}
-              >
-                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Staff"}
-              </Button>
+              {/* Password with strength meter */}
+              <PasswordField
+                value={form.password}
+                onChange={(v) => handleChange("password", v)}
+                error={fieldErrors.password}
+              />
+
+              {/* Role & Branch */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Role</Label>
+                  <select
+                    value={form.role}
+                    onChange={(e) => handleChange("role", e.target.value)}
+                    className="w-full border border-zinc-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-300"
+                  >
+                    {["manager", "waiter", "kitchen", "cashier"].map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Branch</Label>
+                  <select
+                    value={form.branch_id}
+                    onChange={(e) => handleChange("branch_id", e.target.value)}
+                    className={cn(
+                      "w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-300",
+                      fieldErrors.branch_id ? "border-red-400" : "border-zinc-200"
+                    )}
+                  >
+                    {branches.map((b) => (
+                      <option key={b.ID} value={b.ID}>{b.Name}</option>
+                    ))}
+                  </select>
+                  {fieldErrors.branch_id && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> {fieldErrors.branch_id}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* General API error inside dialog */}
+              {error && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  <p className="text-xs text-red-600">{error}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-xl"
+                  onClick={() => setShowDialog(false)}
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
+                  onClick={handleAdd}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Staff"}
+                </Button>
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

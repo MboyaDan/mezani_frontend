@@ -3,17 +3,18 @@ import { Branch } from "@/types"
 
 
 export const branchesAPI = {
-  list: async () => {
-    const res = await API.get("/owner/branches")
-    return (res.data ?? []) as Branch[]  // ← coerce null → []
+  list: async (role?: string) => {
+    const endpoint = role === "manager" ? "/manager/branches" : "/owner/branches"
+    const res = await API.get(endpoint)
+    return (res.data ?? []) as Branch[]
   },
 
   create: async (name: string, location: string) => {
-    const res = await API.post("/owner/branches", { name, location })
-    return (res.data ?? []) as Branch[]  // ← coerce null → []
+    const res = await API.post("/owner/branches", { name, location })  
+    return (res.data ?? []) as Branch[]
   },
 
   delete: async (id: string) => {
-    await API.delete(`/owner/branches/${id}`)
-},
+    await API.delete(`/owner/branches/${id}`) 
+  },
 }
