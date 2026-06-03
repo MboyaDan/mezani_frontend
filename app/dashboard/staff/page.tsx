@@ -17,6 +17,7 @@ import { branchesAPI } from "@/lib/api/branches"
 import { useBranch } from "@/hooks/useBranch"
 import { useUser } from "@/hooks/useUser"
 import { Branch } from "@/types"
+import { BranchRequired } from "@/components/ui/branch-required"
 
 const roleConfig: Record<string, { color: string; bg: string; icon: any }> = {
   owner:   { color: "text-zinc-700",    bg: "bg-zinc-100",    icon: Users },
@@ -160,7 +161,7 @@ export default function StaffPage() {
   const { branchId } = useBranch()
   const { user } = useUser()
 
-  // ✅ Only owners can add/delete staff
+  //  Only owners can add/delete staff
   const isOwner = user?.role === "owner"
 
   const [staff, setStaff] = useState<StaffMember[]>([])
@@ -281,6 +282,7 @@ export default function StaffPage() {
     setError(null)
     setShowDialog(true)
   }
+  if (!branchId) return <BranchRequired />
 
   return (
     <div className="flex flex-col flex-1 bg-[#F8FAFC]">

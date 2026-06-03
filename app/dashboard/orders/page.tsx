@@ -8,6 +8,7 @@ import { Search, Clock, Loader2, RefreshCw } from "lucide-react"
 import { ordersAPI } from "@/lib/api/orders"
 import { useBranch } from "@/hooks/useBranch"
 import { formatDistanceToNow } from "date-fns"
+import { BranchRequired } from "@/components/ui/branch-required"
 
 const statusStyles: Record<string, string> = {
   pending: "bg-orange-100 text-orange-700 border-orange-200",
@@ -72,6 +73,7 @@ function isApiError(error: unknown): error is ApiError {
 
 export default function OrdersPage() {
   const { branchId } = useBranch()
+ 
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -103,6 +105,10 @@ export default function OrdersPage() {
     const t = setInterval(fetchOrders, 15000)
     return () => clearInterval(t)
   }, [fetchOrders])
+
+   if (!branchId) {
+    return <BranchRequired />
+  }
 
   const advance = async (id: string, currentStatus: string) => {
     const next = nextStatus[currentStatus]

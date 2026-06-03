@@ -14,6 +14,7 @@ import {
 import { inventoryAPI } from "@/lib/api/inventory"
 import { useBranch } from "@/hooks/useBranch"
 import { useToast } from "@/hooks/useToast"
+import { BranchRequired } from "@/components/ui/branch-required"
 
 interface InventoryItem {
   ID: string
@@ -175,7 +176,7 @@ export default function InventoryPage() {
     if (pct <= 0.5) return "bg-amber-500"
     return "bg-emerald-500"
   }
-
+if (!branchId) return <BranchRequired/>
   return (
     <div className="flex flex-col flex-1 bg-[#F8FAFC]">
       <Topbar title="Inventory" />

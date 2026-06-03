@@ -11,6 +11,7 @@ import { Plus, Search, Pencil, Loader2, RefreshCw, AlertCircle } from "lucide-re
 import { menuAPI } from "@/lib/api/menu"
 import { useBranch } from "@/hooks/useBranch"
 import { useToast } from "@/hooks/useToast"
+import { BranchRequired } from "@/components/ui/branch-required"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -365,6 +366,7 @@ export default function MenuPage() {
       toast("error", "Failed to update item status", "Server error — please try again")
     }
   }
+  if (!branchId) return <BranchRequired />
 
   // ── Empty state — no menu yet ──────────────────────────────────────────────
 

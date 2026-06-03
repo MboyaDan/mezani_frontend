@@ -10,7 +10,7 @@ import { useBranch } from "@/hooks/useBranch"
 import {
   LayoutDashboard, UtensilsCrossed, Users,
   TableProperties, BarChart3, Package,
-  ChefHat, LogOut, ShoppingBag, Network,
+  ChefHat, LogOut, ShoppingBag, Network,Sparkles
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 
@@ -19,10 +19,11 @@ const navItems = [
   { label: "Orders",     href: "/dashboard/orders",     icon: ShoppingBag,     roles: ["owner", "manager", "waiter"] },
   { label: "Menu",       href: "/dashboard/menu",       icon: UtensilsCrossed, roles: ["owner", "manager"] },
   { label: "Tables",     href: "/dashboard/tables",     icon: TableProperties, roles: ["owner", "manager", "waiter"] },
-{ label: "Staff", href: "/dashboard/staff", icon: Users, roles: ["owner", "manager"] },,
+  { label: "Staff", href: "/dashboard/staff", icon: Users, roles: ["owner", "manager"] },
   { label: "Branches",   href: "/dashboard/branches",   icon: Network,         roles: ["owner"] },
   { label: "Inventory",  href: "/dashboard/inventory",  icon: Package,         roles: ["owner", "manager"] },
   { label: "Analytics",  href: "/dashboard/analytics",  icon: BarChart3,       roles: ["owner", "manager"] },
+  { label: "AI Assistant",  href: "/dashboard/ai",  icon: Sparkles,       roles: ["owner", "manager"] },
 ]
 
 export function Sidebar() {

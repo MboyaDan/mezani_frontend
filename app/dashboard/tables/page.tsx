@@ -14,6 +14,8 @@ import { tablesAPI, sessionsAPI } from "@/lib/api/tables"
 import { useBranch } from "@/hooks/useBranch"
 import QRCode from "react-qr-code"
 import { useUser } from "@/hooks/useUser"
+import { BranchRequired } from "@/components/ui/branch-required"
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -488,6 +490,7 @@ const handleAddTable = async () => {
   }
 
   const filtered = filter === "all" ? tables : tables.filter((t) => t.status === filter)
+  if (!branchId) return <BranchRequired />
 
   // ── Render ───────────────────────────────────────────────────────────────────
 

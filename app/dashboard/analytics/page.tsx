@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { analyticsAPI } from "@/lib/api/analytics"
 import { useBranch } from "@/hooks/useBranch"   
+import { BranchRequired } from "@/components/ui/branch-required"
 
 
 interface PopularItem {
@@ -115,6 +116,7 @@ export default function AnalyticsPage() {
       bg: "bg-orange-50",
     },
   ]
+  if(!branchId) return <BranchRequired />
 
   return (
     <div className="flex flex-col flex-1 bg-[#F8FAFC]">

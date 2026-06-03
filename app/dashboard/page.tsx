@@ -9,6 +9,7 @@ import { ordersAPI } from "@/lib/api/orders"
 import { tablesAPI } from "@/lib/api/tables"
 import { useBranch } from "@/hooks/useBranch"
 import { formatDistanceToNow } from "date-fns"
+import { BranchRequired } from "@/components/ui/branch-required"
 
 const statusStyles: Record<string, string> = {
   pending:   "bg-orange-100 text-orange-700 border-orange-200",
@@ -93,7 +94,8 @@ export default function DashboardPage() {
       bg: "bg-orange-50",
     },
   ]
-
+if(!branchId)
+  return <BranchRequired />
   return (
     <div className="flex flex-col flex-1 bg-[#F8FAFC]">
       <Topbar title="Overview" />
