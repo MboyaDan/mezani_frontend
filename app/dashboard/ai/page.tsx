@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Topbar } from "@/components/layout/topbar"
 import { useBranch } from "@/hooks/useBranch"
-import { getCurrentUser } from "@/lib/auth"
+import{useUser} from "@/hooks/useUser"    
 import { aiAPI } from "@/lib/api/ai"
 import { cn } from "@/lib/utils"
 import { Send, Loader2, Sparkles, RefreshCw } from "lucide-react"
@@ -37,6 +37,7 @@ interface Message {
 
 export default function AIPage() {
   const { branchId } = useBranch()
+  const { user } = useUser()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
@@ -44,7 +45,7 @@ export default function AIPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  const user = getCurrentUser()
+  
   const initials = user?.name
     ? user.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
     : "U"
