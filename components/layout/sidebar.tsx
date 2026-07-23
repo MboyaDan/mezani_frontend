@@ -10,9 +10,10 @@ import { useBranch } from "@/hooks/useBranch"
 import {
   LayoutDashboard, UtensilsCrossed, Users,
   TableProperties, BarChart3, Package,
-  ChefHat, LogOut, ShoppingBag, Network,Sparkles
+  ChefHat, LogOut, ShoppingBag, Network, Sparkles, X
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
+import { useSidebar } from "@/components/layout/sidebar-context"
 
 const navItems = [
   { label: "Overview",   href: "/dashboard",            icon: LayoutDashboard, roles: ["owner", "manager"] },
@@ -30,6 +31,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { logout } = useAuth()
   const { branchId, selectBranch } = useBranch()
+  const { isOpen, close } = useSidebar()
   const [mounted, setMounted] = useState(false)
   const [user, setUser] = useState<JWTPayload | null>(null)
 
@@ -38,9 +40,14 @@ export function Sidebar() {
     setUser(getCurrentUser())
   }, [])
 
+  // Close the mobile drawer whenever the route changes
+  useEffect(() => {
+    close()
+  }, [pathname, close])
+
   if (!mounted) {
     return (
-      <aside className="flex flex-col w-64 min-h-screen bg-gradient-to-b from-[#0f172a] to-[#111827]" />
+      <aside className="hidden md:flex flex-col w-64 min-h-screen bg-gradient-to-b from-[#0f172a] to-[#111827]" />
     )
   }
 
@@ -49,14 +56,40 @@ export function Sidebar() {
   )
 
   return (
-    <aside className="flex flex-col w-64 min-h-screen bg-gradient-to-b from-[#0f172a] to-[#111827] text-zinc-100">
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          onClick={close}
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={cn(
+          "flex flex-col w-64 min-h-screen bg-gradient-to-b from-[#0f172a] to-[#111827] text-zinc-100",
+          "fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out",
+          "md:static md:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
       {/* Logo */}
       <div className="px-6 py-5 border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
-            <ChefHat className="w-4 h-4 text-white" />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
+              <ChefHat className="w-4 h-4 text-white" />
+            </div>
+            <h1 className="text-lg font-bold tracking-tight">Mezzani</h1>
           </div>
-          <h1 className="text-lg font-bold tracking-tight">Mezzani</h1>
+          <button
+            onClick={close}
+            className="md:hidden p-1 rounded-lg text-zinc-400 hover:bg-white/5 hover:text-white transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* NOW FROM JWT */}
@@ -129,6 +162,7 @@ export function Sidebar() {
           Sign out
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }
