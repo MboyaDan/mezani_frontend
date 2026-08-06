@@ -4,11 +4,14 @@ import { Topbar } from "@/components/layout/topbar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { Search, Clock, Loader2, RefreshCw } from "lucide-react"
+import { Search, Clock, Loader2, RefreshCw, Banknote, CheckCircle2 } from "lucide-react"
 import { ordersAPI } from "@/lib/api/orders"
+import { paymentsAPI, Payment } from "@/lib/api/payments"
 import { useBranch } from "@/hooks/useBranch"
+import { useUser } from "@/hooks/useUser"
 import { formatDistanceToNow } from "date-fns"
 import { BranchRequired } from "@/components/ui/branch-required"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 const statusStyles: Record<string, string> = {
   pending: "bg-orange-100 text-orange-700 border-orange-200",
@@ -45,6 +48,7 @@ interface OrderItem {
 
 interface Order {
   id: string
+  table_session_id: string
   table_number: number
   status: string
   created_at: string
@@ -73,13 +77,28 @@ function isApiError(error: unknown): error is ApiError {
 
 export default function OrdersPage() {
   const { branchId } = useBranch()
- 
+  const { user } = useUser()
+
   const [orders, setOrders] = useState<Order[]>([])
+  const [pendingPayments, setPendingPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [advancing, setAdvancing] = useState<string | null>(null)
+
+  // Payment dialog state
+  const [payingSession, setPayingSession] = useState<{
+    tableSessionId: string
+    tableNumber: number
+    total: number
+  } | null>(null)
+  const [payAmount, setPayAmount] = useState("")
+  const [payLoading, setPayLoading] = useState(false)
+  const [payError, setPayError] = useState<string | null>(null)
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+
+  const canConfirmPayment = user?.role === "owner" || user?.role === "manager" || user?.role === "cashier"
 
   const fetchOrders = useCallback(async () => {
     if (!branchId) return
@@ -99,12 +118,26 @@ export default function OrdersPage() {
     }
   }, [branchId])
 
+const fetchPendingPayments = useCallback(async () => {
+    if (!branchId) return
+    try {
+      const data = await paymentsAPI.getPending(branchId)
+      setPendingPayments(data ?? [])
+    } catch {
+      // Non-critical — the "collect cash" flow still works without this list
+    }
+  }, [branchId])
+
   useEffect(() => {
     fetchOrders()
-    // Poll every 15 seconds for new orders
-    const t = setInterval(fetchOrders, 15000)
+    fetchPendingPayments()
+    // Poll every 15 seconds for new orders and payment updates
+    const t = setInterval(() => {
+      fetchOrders()
+      fetchPendingPayments()
+    }, 15000)
     return () => clearInterval(t)
-  }, [fetchOrders])
+  }, [fetchOrders, fetchPendingPayments])
 
    if (!branchId) {
     return <BranchRequired />
@@ -135,6 +168,70 @@ export default function OrdersPage() {
   }
 
   const newCount = orders.filter((o) => o.status === "pending").length
+
+  // Group served-but-unpaid orders by table_session_id — a "bill" spans the
+  // whole session, not a single order, so payment is collected per session.
+  const billsBySession = orders
+    .filter((o) => o.status === "served")
+    .reduce<Record<string, { tableSessionId: string; tableNumber: number; total: number }>>(
+      (acc, o) => {
+        const existing = acc[o.table_session_id]
+        if (existing) {
+          existing.total += o.total
+        } else {
+          acc[o.table_session_id] = {
+            tableSessionId: o.table_session_id,
+            tableNumber: o.table_number,
+            total: o.total,
+          }
+        }
+        return acc
+      },
+      {}
+    )
+  const bills = Object.values(billsBySession)
+
+  const pendingBySession = new Map(pendingPayments.map((p) => [p.TableSessionID, p]))
+
+  const openPaymentDialog = (bill: { tableSessionId: string; tableNumber: number; total: number }) => {
+    setPayingSession(bill)
+    setPayAmount(String(bill.total))
+    setPayError(null)
+  }
+
+  const submitCashPayment = async () => {
+    if (!payingSession) return
+    const amount = Number(payAmount)
+    if (!amount || amount <= 0) {
+      setPayError("Enter a valid amount")
+      return
+    }
+    setPayLoading(true)
+    setPayError(null)
+    try {
+      await paymentsAPI.initiateCash(payingSession.tableSessionId, amount)
+      setPayingSession(null)
+      await fetchPendingPayments()
+    } catch (err: unknown) {
+      setPayError(
+        isApiError(err) ? err.response?.data?.error ?? err.message ?? "Failed to record cash payment" : "Failed to record cash payment"
+      )
+    } finally {
+      setPayLoading(false)
+    }
+  }
+
+  const confirmCashReceived = async (paymentId: string) => {
+    setConfirmingId(paymentId)
+    try {
+      await paymentsAPI.confirm(paymentId)
+      await Promise.all([fetchOrders(), fetchPendingPayments()])
+    } catch (err) {
+      console.error("Failed to confirm payment:", err)
+    } finally {
+      setConfirmingId(null)
+    }
+  }
 
   const filtered = orders
     .filter((o) => {
@@ -200,6 +297,63 @@ export default function OrdersPage() {
             </button>
           ))}
         </div>
+
+        {/* Bills Awaiting Payment */}
+        {bills.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">
+              Bills Awaiting Payment
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {bills.map((bill) => {
+                const pending = pendingBySession.get(bill.tableSessionId)
+                return (
+                  <div
+                    key={bill.tableSessionId}
+                    className="bg-white rounded-2xl border border-zinc-200 p-4 flex items-center justify-between gap-3"
+                  >
+                    <div>
+                      <p className="text-sm font-bold text-zinc-900">Table {bill.tableNumber}</p>
+                      <p className="text-lg font-bold text-orange-500">
+                        KES {bill.total.toLocaleString()}
+                      </p>
+                    </div>
+                    {pending ? (
+                      canConfirmPayment ? (
+                        <button
+                          onClick={() => confirmCashReceived(pending.ID)}
+                          disabled={confirmingId === pending.ID}
+                          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {confirmingId === pending.ID ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Confirm Cash
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-zinc-400 whitespace-nowrap">
+                          Awaiting cashier
+                        </span>
+                      )
+                    ) : (
+                      <button
+                        onClick={() => openPaymentDialog(bill)}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition-all active:scale-95 whitespace-nowrap"
+                      >
+                        <Banknote className="w-3.5 h-3.5" />
+                        Collect Cash
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Loading */}
         {loading && (
@@ -310,6 +464,40 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
+
+      {/* Collect Cash dialog */}
+      <Dialog open={!!payingSession} onOpenChange={(open) => !open && setPayingSession(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Collect Cash — Table {payingSession?.tableNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-zinc-500">
+              This marks the bill as awaiting your confirmation — orders won&apos;t
+              be marked paid until you tap &quot;Confirm Cash&quot; once the money is
+              actually in hand. The amount charged is the full outstanding
+              balance for this table, calculated by the server.
+            </p>
+            <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3">
+              <p className="text-xs font-medium text-zinc-500">Amount Due</p>
+              <p className="text-2xl font-bold text-zinc-900">
+                KES {payingSession?.total.toLocaleString()}
+              </p>
+            </div>
+            {payError && (
+              <p className="text-xs text-red-500">{payError}</p>
+            )}
+            <button
+              onClick={submitCashPayment}
+              disabled={payLoading}
+              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+            >
+              {payLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Record Cash Payment"}
+            </button>
+          </div>
+   
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
