@@ -8,6 +8,7 @@ import { Search, Clock, Loader2, RefreshCw, Banknote, CheckCircle2 } from "lucid
 import { ordersAPI } from "@/lib/api/orders"
 import { paymentsAPI, Payment } from "@/lib/api/payments"
 import { useBranch } from "@/hooks/useBranch"
+import { useBranchWebSocket } from "@/hooks/useBranchWebSocket"
 import { useUser } from "@/hooks/useUser"
 import { formatDistanceToNow } from "date-fns"
 import { BranchRequired } from "@/components/ui/branch-required"
@@ -128,16 +129,25 @@ const fetchPendingPayments = useCallback(async () => {
     }
   }, [branchId])
 
-  useEffect(() => {
+useEffect(() => {
     fetchOrders()
     fetchPendingPayments()
-    // Poll every 15 seconds for new orders and payment updates
+    // Slower fallback poll now that the WebSocket below handles the fast
+    // path — kept deliberately, since WS connections can silently drop
+    // and this is the safety net that keeps the page eventually correct.
     const t = setInterval(() => {
       fetchOrders()
       fetchPendingPayments()
-    }, 15000)
+    }, 30000)
     return () => clearInterval(t)
   }, [fetchOrders, fetchPendingPayments])
+  
+  useBranchWebSocket(branchId, (msg) => {
+    if (msg.type === "payment_initiated" || msg.type === "payment_confirmed") {
+      fetchOrders()
+      fetchPendingPayments()
+    }
+  })
 
    if (!branchId) {
     return <BranchRequired />

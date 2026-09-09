@@ -52,6 +52,19 @@ API.interceptors.response.use(
     if (!original) {
       return Promise.reject(error)
     }
+    // The server-side subscription guard returns 402 once
+    // subscription_expires_at has passed — redirect to the renewal page
+    // from anywhere in the app. Guard against a redirect loop: skip this
+    // if we're already there (it's deliberately not subscription-gated,
+    // so it would never actually 402 itself).
+    if (
+      error.response?.status === 402 &&
+      typeof window !== "undefined" &&
+      window.location.pathname !== "/billing/renew"
+    ) {
+      window.location.href = "/billing/renew"
+      return Promise.reject(error)
+    }
 
     if (error.response?.status === 401 && !original._retry) {
       // ─── Queue requests while refreshing ───

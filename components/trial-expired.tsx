@@ -1,30 +1,31 @@
 "use client"
-import { getTrialInfo, clearTokens } from "@/lib/auth"
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
+import { clearTokens } from "@/lib/auth"
+import { useUser } from "@/hooks/useUser"
 import { ChefHat, Lock } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 export function TrialExpiredGuard({ children }: { children: React.ReactNode }) {
-  const [expired, setExpired] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const { user, loading } = useUser()
   const router = useRouter()
+  const [expired, setExpired] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-    const trial = getTrialInfo()
-    if (trial?.isExpired) {
-      setExpired(true)
+    if (loading) return
+    if (!user?.subscription_expires_at) {
+      setExpired(false)
+      return
     }
-  }, [])
+    const expiresAt = new Date(user.subscription_expires_at)
+    setExpired(expiresAt.getTime() < Date.now())
+  }, [user, loading])
 
-  if (!mounted) return <>{children}</>
   if (!expired) return <>{children}</>
 
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-[#F8FAFC] p-6 min-h-screen">
       <div className="w-full max-w-md text-center space-y-6">
-        {/* Icon */}
         <div className="relative w-16 h-16 mx-auto">
           <div className="w-16 h-16 rounded-2xl bg-zinc-100 flex items-center justify-center">
             <ChefHat className="w-8 h-8 text-zinc-300" />
@@ -34,18 +35,16 @@ export function TrialExpiredGuard({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Copy */}
         <div>
-          <h2 className="text-2xl font-bold text-zinc-900">Your free trial has ended</h2>
+          <h2 className="text-2xl font-bold text-zinc-900">Your subscription has ended</h2>
           <p className="text-zinc-500 mt-2 text-sm leading-relaxed">
-            Your 14-day free trial is over. Upgrade to keep access to your restaurant dashboard, menus, staff and order history.
+            Renew to keep access to your restaurant dashboard, menus, staff and order history.
           </p>
         </div>
 
-        {/* What they lose */}
         <div className="bg-white border border-zinc-200 rounded-2xl p-4 text-left space-y-2">
           <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">
-            Your data is safe — upgrade to regain access to:
+            Your data is safe — renew to regain access to:
           </p>
           {[
             "All orders and order history",
@@ -61,13 +60,12 @@ export function TrialExpiredGuard({ children }: { children: React.ReactNode }) {
           ))}
         </div>
 
-        {/* CTAs */}
         <div className="space-y-3">
           <Link
-            href="/#pricing"
+            href="/billing/renew"
             className="block w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-4 rounded-2xl transition-colors text-sm"
           >
-            View plans & upgrade →
+            View plans & renew →
           </Link>
           <button
             onClick={() => {

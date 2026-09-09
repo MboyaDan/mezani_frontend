@@ -7,6 +7,8 @@ import API from "@/lib/client"
 export type UserProfile = JWTPayload & {
   name?: string
   email?: string
+  subscription_status?: string
+  subscription_expires_at?: string
 }
 
 export function useUser() {
