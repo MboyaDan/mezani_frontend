@@ -1,12 +1,12 @@
 "use client"
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { subscriptionAPI } from "@/lib/api/subscription"
 import { Loader2, CheckCircle2, XCircle } from "lucide-react"
 
 type Status = "verifying" | "success" | "failed"
 
-export default function BillingCallbackPage() {
+function BillingCallbackContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [status, setStatus] = useState<Status>("verifying")
@@ -69,5 +69,24 @@ export default function BillingCallbackPage() {
         </>
       )}
     </div>
+  )
+}
+
+// useSearchParams() forces this page out of static prerendering unless
+// wrapped in Suspense — Next.js needs a fallback to show while it
+// resolves the search params on the client. The actual logic lives in
+// BillingCallbackContent above; this default export just provides the
+// boundary Next.js requires.
+export default function BillingCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+          <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+        </div>
+      }
+    >
+      <BillingCallbackContent />
+    </Suspense>
   )
 }
