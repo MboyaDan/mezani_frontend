@@ -138,7 +138,7 @@ export default function AIPage() {
               <Sparkles className="w-4 h-4 text-violet-600" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-zinc-900">MazzaniAI</p>
+              <p className="text-sm font-semibold text-zinc-900">MezzaniAI</p>
               <p className="text-xs text-zinc-400">Restaurant analytics assistant</p>
             </div>
           </div>
@@ -163,7 +163,7 @@ export default function AIPage() {
                   <Sparkles className="w-7 h-7 text-violet-500" />
                 </div>
                 <p className="text-base font-semibold text-zinc-900">
-                  Ask MazzaniAI anything about your restaurant
+                  Ask MezzaniAI anything about your restaurant
                 </p>
                 <p className="text-sm text-zinc-400">
                   Powered by your real operational data — orders, inventory, staff

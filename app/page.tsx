@@ -1,40 +1,7 @@
 import Link from "next/link"
-import { ChefHat, QrCode, BarChart3, Users, Zap, Shield, Download, ArrowRight, Mail } from "lucide-react"
+import { ChefHat, QrCode, BarChart3, Users, Zap, Download, ArrowRight, Sparkles, Check } from "lucide-react"
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-
-const features = [
-  {
-    icon: QrCode,
-    title: "QR Code Ordering",
-    description: "Customers scan, browse & order from their phone. No app download needed. Orders go straight to the kitchen.",
-  },
-  {
-    icon: Zap,
-    title: "Kitchen Display System",
-    description: "Real-time order cards for your kitchen team. Accept, prepare & serve faster with live WebSocket updates.",
-  },
-  {
-    icon: BarChart3,
-    title: "Smart Analytics",
-    description: "Track revenue, peak hours, top dishes & customer behaviour in real-time from your dashboard.",
-  },
-  {
-    icon: Users,
-    title: "Staff Management",
-    description: "Manage roles & permissions for kitchen staff, waiters, cashiers & managers across all branches.",
-  },
-  {
-    icon: Shield,
-    title: "Multi-Tenant SaaS",
-    description: "Each restaurant gets fully isolated data, menus & analytics. One platform, unlimited restaurants.",
-  },
-  {
-    icon: ChefHat,
-    title: "Instant Menu Updates",
-    description: "Mark items sold out, update prices & set daily specials in seconds. Changes reflect immediately on QR menus.",
-  },
-]
 
 const tiers = [
   {
@@ -43,9 +10,10 @@ const tiers = [
     period: "/month",
     description: "Perfect for single-location restaurants",
     features: [
+      "1 branch",
       "QR code ordering",
+      "Kitchen display",
       "Menu management",
-      "Up to 20 tables",
       "Basic dashboard",
       "Email support",
     ],
@@ -59,11 +27,11 @@ const tiers = [
     period: "/month",
     description: "For growing restaurants that need more",
     features: [
+      "Up to 3 branches",
       "Everything in Starter",
-      "Analytics dashboard",
-      "WhatsApp alerts",
+      "Sales analytics",
       "Staff management",
-      "Customer database",
+      "Inventory tracking",
       "Priority support",
     ],
     cta: "Start free trial",
@@ -74,28 +42,28 @@ const tiers = [
     name: "Enterprise",
     price: "KES 15,000",
     period: "/month",
-    description: "Multi-branch chains & franchises",
+    description: "Multi-branch restaurants & chains",
     features: [
+      "Up to 8 branches",
       "Everything in Pro",
-      "Multi-branch support",
-      "Inventory management",
+      "Mezzani AI assistant",
       "Advanced analytics",
-      "API access",
       "Dedicated support",
+      "Custom onboarding",
     ],
     cta: "Contact Us",
-    // UX FIX: Enterprise gets a contextually appropriate sub-label instead of
-    // the trial copy — keeps the rhythm without making a false promise.
     ctaSub: "Custom onboarding included",
     highlight: false,
   },
 ]
 
+// Honest, verifiable numbers only — no SLA claims we don't contractually
+// offer or actively monitor.
 const stats = [
-  { value: "< 30s", label: "Order to kitchen time" },
+  { value: "< 30s", label: "Order reaches the kitchen" },
   { value: "Zero", label: "Hardware required" },
-  { value: "99.9%", label: "Uptime SLA" },
-  { value: "5 roles", label: "Staff permission levels" },
+  { value: "~5 min", label: "Typical setup time" },
+  { value: "14 days", label: "Free trial" },
 ]
 
 // ─── Navbar ────────────────────────────────────────────────────────────────────
@@ -104,15 +72,15 @@ function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-zinc-100">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
             <ChefHat className="w-4 h-4 text-white" />
           </div>
           <span className="text-lg font-bold text-zinc-900">Mezzani</span>
-        </div>
+        </Link>
         <div className="hidden md:flex items-center gap-8">
-          <a href="#features" className="text-sm text-zinc-600 hover:text-zinc-900 transition-colors">Features</a>
           <a href="#how-it-works" className="text-sm text-zinc-600 hover:text-zinc-900 transition-colors">How it works</a>
+          <a href="#mezzani-ai" className="text-sm text-zinc-600 hover:text-zinc-900 transition-colors">Mezzani AI</a>
           <a href="#qr-codes" className="text-sm text-zinc-600 hover:text-zinc-900 transition-colors">QR Codes</a>
           <a href="#pricing" className="text-sm text-zinc-600 hover:text-zinc-900 transition-colors">Pricing</a>
         </div>
@@ -139,36 +107,161 @@ function Hero() {
     <section className="pt-32 pb-20 px-6 bg-[#F8FAFC]">
       <div className="max-w-4xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-          ⭐ Multi-tenant SaaS for African restaurants
+          🇰🇪 Now live in our first Nairobi restaurant
         </div>
         <h1 className="text-5xl md:text-6xl font-bold text-zinc-900 leading-tight tracking-tight">
-          One platform,{" "}
-          <span className="text-orange-500">every restaurant</span>
+          Run your restaurant{" "}
+          <span className="text-orange-500">without the chaos</span>
         </h1>
         <p className="mt-6 text-lg text-zinc-500 max-w-2xl mx-auto leading-relaxed">
-          QR ordering, kitchen management, analytics & more — all in one platform.
-          Built for everything from nyama choma joints to fine dining chains. No hardware needed.
+          Orders go from table to kitchen to service in real time. One simple system
+          for QR ordering, kitchen orders, staff and sales — without expensive
+          hardware or complicated setup.
         </p>
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            href="/register"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 py-4 rounded-2xl transition-all shadow-lg shadow-orange-100 text-sm"
-          >
-            Start free trial →
-          </Link>
-          <Link
-            href="/dashboard"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 font-semibold px-8 py-4 rounded-2xl transition-all text-sm"
-          >
-            View Dashboard Demo
-          </Link>
-        </div>
-        {/* UX IMPROVEMENT: moved trust copy directly under CTAs — reduces anxiety at the decision point */}
-        <p className="mt-4 text-xs text-zinc-400">No credit card required · Setup in under 5 minutes</p>
-      </div>
+  <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+  <Link
+    href="/register"
+    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 py-4 rounded-2xl transition-all shadow-lg shadow-orange-100 text-sm"
+  >
+    Start your free trial →
+  </Link>
 
-      {/* Dashboard preview */}
-      <div className="max-w-5xl mx-auto mt-16">
+  <a
+    href="#how-it-works"
+    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 font-semibold px-8 py-4 rounded-2xl transition-all text-sm"
+  >
+    See how it works
+  </a>
+</div>
+        <p className="mt-4 text-xs text-zinc-400">
+          14-day free trial · No credit card required · Works on any phone, tablet or computer
+        </p>
+      </div>
+    </section>
+  )
+}
+
+// ─── The Problem ───────────────────────────────────────────────────────────────
+
+function Problem() {
+  const pains = [
+    "Orders get lost between the waiter and the kitchen",
+    "Staff shouting across the restaurant to confirm an order",
+    "Customers waiting, and nobody's sure whose order it is",
+    "End of day, you still don't know what actually sold",
+  ]
+
+  return (
+    <section className="py-20 px-6 bg-white border-y border-zinc-100">
+      <div className="max-w-3xl mx-auto text-center">
+        <h2 className="text-3xl font-bold text-zinc-900">Sound familiar?</h2>
+        <p className="mt-3 text-zinc-500">
+          Most restaurants aren&apos;t losing money because the food is bad.
+          They&apos;re losing it in the gaps between the table, the kitchen and the till.
+        </p>
+        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+          {pains.map((pain) => (
+            <div key={pain} className="flex items-start gap-3 bg-[#F8FAFC] border border-zinc-200 rounded-2xl p-4">
+              <span className="text-red-400 font-bold shrink-0 mt-0.5">✕</span>
+              <p className="text-sm text-zinc-600 leading-relaxed">{pain}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-10 text-lg font-semibold text-zinc-900">
+          Mezzani connects the whole restaurant — so nothing falls through.
+        </p>
+      </div>
+    </section>
+  )
+}
+
+// ─── How It Works (the workflow story) ─────────────────────────────────────────
+
+function HowItWorks() {
+  const steps = [
+    {
+      num: "01",
+      actor: "CUSTOMER",
+      title: "Scan the QR code on the table",
+      desc: "No app to download. No account to create. The menu opens straight in their phone browser.",
+      icon: QrCode,
+    },
+    {
+      num: "02",
+      actor: "CUSTOMER / WAITER",
+      title: "Order goes into Mezzani",
+      desc: "Guests order from their phone, or your waiter places it for them. Either way it lands in one place.",
+      icon: ChefHat,
+    },
+    {
+      num: "03",
+      actor: "KITCHEN",
+      title: "The kitchen sees it instantly",
+      desc: "Orders appear on the kitchen screen the moment they're placed — no shouting, no paper tickets, nothing lost.",
+      icon: Zap,
+    },
+    {
+      num: "04",
+      actor: "STAFF",
+      title: "Status updates as it moves",
+      desc: "Preparing → ready → served. Everyone knows where every order stands without asking.",
+      icon: Users,
+    },
+    {
+      num: "05",
+      actor: "OWNER",
+      title: "You see what's actually happening",
+      desc: "Orders, revenue, best sellers, busiest hours — live, from your phone, wherever you are.",
+      icon: BarChart3,
+    },
+  ]
+
+  return (
+    <section id="how-it-works" className="py-24 px-6 bg-[#F8FAFC]">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl font-bold text-zinc-900">From table to kitchen to dashboard</h2>
+          <p className="mt-3 text-zinc-500">One connected system. No hardware. No training weekend.</p>
+        </div>
+        <div className="space-y-0">
+          {steps.map((step, i) => {
+            const Icon = step.icon
+            return (
+              <div key={step.num} className="flex gap-6 pb-10 relative">
+                {i < steps.length - 1 && (
+                  <div className="absolute left-5 top-10 bottom-0 w-px bg-zinc-200" />
+                )}
+                <div className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0 relative z-10">
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="pt-1">
+                  <p className="text-xs font-bold text-orange-500 tracking-wider mb-1">
+                    {step.num} — {step.actor}
+                  </p>
+                  <h3 className="text-base font-bold text-zinc-900">{step.title}</h3>
+                  <p className="text-sm text-zinc-500 mt-1 leading-relaxed">{step.desc}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+// ─── Live Dashboard Preview ────────────────────────────────────────────────────
+
+function DashboardPreview() {
+  return (
+    <section className="py-24 px-6 bg-white">
+      <div className="max-w-5xl mx-auto">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold text-zinc-900">This is what you see</h2>
+          <p className="mt-3 text-zinc-500 max-w-xl mx-auto">
+            Not a report you run at the end of the month. What&apos;s happening in your restaurant, right now.
+          </p>
+        </div>
+
         <div className="bg-white rounded-3xl border border-zinc-200 shadow-xl overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-100 bg-zinc-50">
             <div className="flex gap-1.5">
@@ -177,7 +270,7 @@ function Hero() {
               <div className="w-3 h-3 rounded-full bg-emerald-400" />
             </div>
             <div className="flex-1 bg-white border border-zinc-200 rounded-lg px-3 py-1 text-xs text-zinc-400 text-center">
-              app.mezzani.co.ke/dashboard
+              mezani.vercel.app/dashboard
             </div>
           </div>
           <div className="flex">
@@ -188,7 +281,6 @@ function Hero() {
                 </div>
                 <span className="text-xs font-bold text-white">Mezzani</span>
               </div>
-              <p className="text-xs text-zinc-500 px-2 mb-2">Mama Njeri Kitchen</p>
               {["Overview", "Orders", "Menu", "Tables", "Staff", "Analytics"].map((item, i) => (
                 <div
                   key={item}
@@ -267,52 +359,165 @@ function Hero() {
             </div>
           </div>
         </div>
+        <p className="text-center text-xs text-zinc-400 mt-4">
+          Sample data shown for illustration.
+        </p>
       </div>
     </section>
   )
 }
 
-// ─── Multi-tenant Trust Bar ────────────────────────────────────────────────────
+// ─── QR Codes Section ──────────────────────────────────────────────────────────
 
-function TrustBar() {
+function QRCodesSection() {
   return (
-    <section className="bg-white border-y border-zinc-100 py-12 px-6">
+    <section id="qr-codes" className="py-24 px-6 bg-white">
       <div className="max-w-5xl mx-auto">
-        <p className="text-center text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-10">
-          Built for scale from day one
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            {
-              badge: "Multi-Tenant",
-              title: "Each restaurant is fully isolated",
-              desc: "Every restaurant gets its own data silo — menus, staff, orders, analytics. No cross-tenant data leakage. Ever.",
-              detail: "Owner → Branches → Tables → Menus → Staff",
-            },
-            {
-              badge: "Multi-Branch",
-              title: "Manage all your locations from one place",
-              desc: "Add branches for Westlands, Kilimani, CBD — all under one account. Switch between them in the sidebar.",
-              detail: "One login. All branches. Zero friction.",
-            },
-            {
-              badge: "Multi-Role",
-              title: "Right access for every team member",
-              desc: "Five distinct roles with granular permissions. Kitchen staff can't touch the menu. Waiters can't close bills.",
-              detail: "Owner · Manager · Waiter · Kitchen · Cashier",
-            },
-          ].map((item) => (
-            <div key={item.badge} className="relative p-6 rounded-2xl bg-[#F8FAFC] border border-zinc-200 hover:border-orange-200 transition-colors">
-              <span className="inline-block bg-orange-100 text-orange-700 text-xs font-bold px-2.5 py-1 rounded-full mb-3">
-                {item.badge}
-              </span>
-              <h3 className="text-sm font-bold text-zinc-900 mb-2">{item.title}</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed mb-3">{item.desc}</p>
-              <p className="text-xs font-mono text-zinc-400 bg-white border border-zinc-100 rounded-lg px-3 py-2">
-                {item.detail}
-              </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <span className="inline-block bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
+              📱 Included on every plan
+            </span>
+            <h2 className="text-3xl font-bold text-zinc-900 mb-4">
+              Turn every table into an ordering point
+            </h2>
+            <p className="text-zinc-500 leading-relaxed mb-6">
+              No waiter needed just to take the order. The customer scans, sees your
+              menu, places the order — and the kitchen has it seconds later.
+              No app. No account. No waiting.
+            </p>
+            <ul className="space-y-3 mb-8">
+              {[
+                "One QR code per table — tied to your branch",
+                "Codes expire when you close the table",
+                "Download as PNG — print and laminate once",
+                "Update your menu anytime, the QR stays the same",
+              ].map((point) => (
+                <li key={point} className="flex items-start gap-2.5 text-sm text-zinc-600">
+                  <span className="text-orange-500 font-bold shrink-0 mt-0.5">✓</span>
+                  {point}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm"
+            >
+              <Download className="w-4 h-4" />
+              Get your QR codes →
+            </Link>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="bg-[#0f172a] rounded-2xl p-6 flex items-center gap-5">
+              <div className="w-24 h-24 bg-white rounded-xl flex items-center justify-center shrink-0">
+                <QrCode className="w-14 h-14 text-zinc-900" />
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500 mb-1">Table 4 · Westlands Branch</p>
+                <p className="text-sm font-bold text-white">Scan to order</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-medium">Active</span>
+                  <span className="text-xs text-zinc-500">Expires in 90 min</span>
+                </div>
+              </div>
             </div>
-          ))}
+
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { step: "1", label: "Customer scans", icon: "📱" },
+                { step: "2", label: "Browses & orders", icon: "🍽️" },
+                { step: "3", label: "Kitchen gets it", icon: "🔔" },
+              ].map((s) => (
+                <div key={s.step} className="bg-[#F8FAFC] border border-zinc-200 rounded-xl p-3 text-center">
+                  <div className="text-xl mb-1">{s.icon}</div>
+                  <p className="text-xs text-zinc-500">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Mezzani AI ────────────────────────────────────────────────────────────────
+
+function MezzaniAI() {
+  return (
+    <section id="mezzani-ai" className="py-24 px-6 bg-[#0f172a]">
+      <div className="max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <span className="inline-flex items-center gap-2 bg-orange-500/10 text-orange-400 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
+              <Sparkles className="w-3 h-3" />
+              Included on Enterprise
+            </span>
+            <h2 className="text-3xl font-bold text-white mb-4">
+              Meet Mezzani AI
+            </h2>
+            <p className="text-zinc-400 leading-relaxed mb-6">
+              Ask questions about your restaurant in plain language and get straight
+              answers — without digging through reports or exporting spreadsheets.
+              Mezzani AI reads your live branch data: orders, revenue, top dishes,
+              busiest hours and stock levels.
+            </p>
+            <ul className="space-y-3 mb-8">
+              {[
+                "What sold best this week?",
+                "When are we busiest?",
+                "What am I running low on?",
+                "How many orders are still in the kitchen?",
+              ].map((q) => (
+                <li key={q} className="flex items-start gap-2.5 text-sm text-zinc-300">
+                  <span className="text-orange-400 font-bold shrink-0 mt-0.5">›</span>
+                  {q}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Chat mockup */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-white/10">
+              <div className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-sm font-bold text-white">Mezzani AI</span>
+            </div>
+
+            <div className="flex justify-end">
+              <div className="bg-orange-500 text-white text-sm rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%]">
+                What were my best-selling dishes this week?
+              </div>
+            </div>
+
+            <div className="flex justify-start">
+              <div className="bg-white/10 text-zinc-200 text-sm rounded-2xl rounded-bl-sm px-4 py-2.5 max-w-[90%] leading-relaxed">
+                Nyama Choma is your top seller with 45 orders (KES 22,500).
+                Chicken Pilau follows with 38, then Beef Burger at 32.
+                Your busiest hour is 7–8pm.
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <div className="bg-orange-500 text-white text-sm rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%]">
+                Anything running low?
+              </div>
+            </div>
+
+            <div className="flex justify-start">
+              <div className="bg-white/10 text-zinc-200 text-sm rounded-2xl rounded-bl-sm px-4 py-2.5 max-w-[90%] leading-relaxed">
+                Yes — cooking oil is at 3 units (threshold 10) and beef is at 8kg.
+                Worth restocking before the weekend.
+              </div>
+            </div>
+
+            <p className="text-xs text-zinc-500 pt-2">
+              Example conversation. Mezzani AI answers from your own live branch data.
+            </p>
+          </div>
         </div>
       </div>
     </section>
@@ -336,172 +541,27 @@ function Stats() {
   )
 }
 
-// ─── Features ──────────────────────────────────────────────────────────────────
+// ─── Proof ─────────────────────────────────────────────────────────────────────
 
-function Features() {
+function Proof() {
   return (
-    <section id="features" className="py-24 px-6 bg-white">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold text-zinc-900">Everything your restaurant needs</h2>
-          <p className="mt-3 text-zinc-500 max-w-xl mx-auto">
-            One platform to run your entire restaurant operation — no matter how many locations.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature) => {
-            const Icon = feature.icon
-            return (
-              <div
-                key={feature.title}
-                className="p-6 rounded-2xl border border-zinc-200 hover:border-orange-200 hover:shadow-md transition-all group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center mb-4 group-hover:bg-orange-100 transition-colors">
-                  <Icon className="w-5 h-5 text-orange-500" />
-                </div>
-                <h3 className="text-sm font-bold text-zinc-900 mb-2">{feature.title}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed">{feature.description}</p>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// ─── QR Codes Section ──────────────────────────────────────────────────────────
-
-function QRCodesSection() {
-  return (
-    <section id="qr-codes" className="py-24 px-6 bg-[#0f172a]">
-      <div className="max-w-5xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Left — copy */}
-          <div>
-            <span className="inline-block bg-orange-500/10 text-orange-400 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
-              📱 Included on every plan
-            </span>
-            <h2 className="text-3xl font-bold text-white mb-4">
-              Table QR codes,<br />ready to print
-            </h2>
-            <p className="text-zinc-400 leading-relaxed mb-6">
-              Generate unique QR codes for every table in your restaurant. Customers scan and start ordering instantly — no app, no account, no friction.
-            </p>
-            <ul className="space-y-3 mb-8">
-              {[
-                "One QR code per table — tied to your branch",
-                "Codes are session-aware — expire when you close a table",
-                "Download as PNG — print and laminate",
-                "Regenerate anytime from your dashboard",
-              ].map((point) => (
-                <li key={point} className="flex items-start gap-2.5 text-sm text-zinc-300">
-                  <span className="text-orange-400 font-bold shrink-0 mt-0.5">✓</span>
-                  {point}
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm"
-            >
-              <Download className="w-4 h-4" />
-              Get your QR codes →
-            </Link>
-            <p className="text-xs text-zinc-500 mt-3">
-              Log in to your dashboard → Tables → Start session → Show QR
-            </p>
-          </div>
-
-          {/* Right — visual */}
-          <div className="flex flex-col gap-4">
-            {/* QR mockup */}
-            <div className="bg-white rounded-2xl p-6 flex items-center gap-5">
-              <div className="w-24 h-24 bg-zinc-900 rounded-xl flex items-center justify-center shrink-0">
-                <QrCode className="w-14 h-14 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-zinc-400 mb-1">Table 4 · Westlands Branch</p>
-                <p className="text-sm font-bold text-zinc-900">Mama Njeri Kitchen</p>
-                <p className="text-xs text-zinc-500 mt-1 font-mono">mezzani.co.ke/menu/session-id</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Active</span>
-                  <span className="text-xs text-zinc-400">Expires in 90 min</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Flow steps */}
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { step: "1", label: "Customer scans", icon: "📱" },
-                { step: "2", label: "Browses & orders", icon: "🍽️" },
-                { step: "3", label: "Kitchen gets it", icon: "🔔" },
-              ].map((s) => (
-                <div key={s.step} className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
-                  <div className="text-xl mb-1">{s.icon}</div>
-                  <p className="text-xs text-zinc-400">{s.label}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Plans */}
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              <p className="text-xs font-semibold text-zinc-300 mb-3">QR codes included on every plan</p>
-              <div className="space-y-2">
-                {[
-                  { plan: "Starter", tables: "Up to 20 tables", color: "text-zinc-400" },
-                  { plan: "Pro", tables: "Up to 50 tables", color: "text-orange-400" },
-                  { plan: "Enterprise", tables: "Unlimited tables", color: "text-emerald-400" },
-                ].map((p) => (
-                  <div key={p.plan} className="flex items-center justify-between">
-                    <span className={`text-xs font-medium ${p.color}`}>{p.plan}</span>
-                    <span className="text-xs text-zinc-500">{p.tables}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// ─── How It Works ──────────────────────────────────────────────────────────────
-
-function HowItWorks() {
-  const steps = [
-    { step: "01", title: "Register your restaurant", desc: "Sign up, add your branches and create your digital menu in minutes." },
-    { step: "02", title: "Print your QR codes", desc: "Download unique QR codes for each table from your dashboard. Stick them on and you're live." },
-    { step: "03", title: "Customers scan & order", desc: "Guests scan the QR, browse your menu and place orders directly from their phones." },
-    { step: "04", title: "Kitchen gets notified", desc: "Orders appear instantly on the kitchen display. Staff update status in real time." },
-  ]
-
-  return (
-    <section id="how-it-works" className="py-24 px-6 bg-[#F8FAFC]">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold text-zinc-900">Up and running in minutes</h2>
-          <p className="mt-3 text-zinc-500">No hardware. No training. No IT department needed.</p>
-        </div>
-        <div className="space-y-0">
-          {steps.map((step, i) => (
-            <div key={step.step} className="flex gap-6 pb-10 relative">
-              {i < steps.length - 1 && (
-                <div className="absolute left-5 top-10 bottom-0 w-px bg-zinc-200" />
-              )}
-              <div className="w-10 h-10 rounded-full bg-orange-500 text-white text-sm font-bold flex items-center justify-center shrink-0 relative z-10">
-                {i + 1}
-              </div>
-              <div className="pt-1.5">
-                <p className="text-xs font-mono text-orange-500 mb-1">{step.step}</p>
-                <h3 className="text-base font-bold text-zinc-900">{step.title}</h3>
-                <p className="text-sm text-zinc-500 mt-1 leading-relaxed">{step.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+    <section className="py-20 px-6 bg-white border-y border-zinc-100">
+      <div className="max-w-3xl mx-auto text-center">
+        <span className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full mb-5">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          Live now
+        </span>
+        <h2 className="text-3xl font-bold text-zinc-900">
+          Serving our first restaurant in Nairobi
+        </h2>
+        <p className="mt-4 text-zinc-500 leading-relaxed">
+          Mezzani is built in Kenya, for Kenyan restaurants — and it&apos;s running in a
+          real kitchen today, handling real orders. We&apos;re taking on a small number of
+          restaurants next, and we onboard every one of them personally.
+        </p>
+        <p className="mt-6 text-sm text-zinc-400">
+          That means you get our full attention — and real say in what we build next.
+        </p>
       </div>
     </section>
   )
@@ -511,17 +571,17 @@ function HowItWorks() {
 
 function Pricing() {
   return (
-    <section id="pricing" className="py-24 px-6 bg-white">
+    <section id="pricing" className="py-24 px-6 bg-[#F8FAFC]">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl font-bold text-zinc-900">Simple, transparent pricing</h2>
-          <p className="mt-3 text-zinc-500">Start free. Scale as you grow. No hidden fees.</p>
+          <p className="mt-3 text-zinc-500">Every plan starts with a 14-day free trial. No card needed.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {tiers.map((tier) => (
             <div
               key={tier.name}
-              className={`rounded-2xl border p-6 relative flex flex-col ${
+              className={`rounded-2xl border p-6 relative flex flex-col bg-white ${
                 tier.highlight
                   ? "border-orange-400 shadow-lg shadow-orange-50"
                   : "border-zinc-200"
@@ -543,82 +603,70 @@ function Pricing() {
                 <p className="text-xs text-zinc-400 mt-1">{tier.description}</p>
               </div>
 
-              {/* UX IMPROVEMENT: flex-1 on the feature list pushes the CTA block to the
-                  bottom of every card — all three CTAs sit at the same visual baseline. */}
               <ul className="space-y-2.5 mb-6 flex-1">
                 {tier.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-zinc-600">
-                    <span className="text-emerald-500 font-bold shrink-0">✓</span>
+                  <li key={f} className="flex items-start gap-2 text-sm text-zinc-600">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                     {f}
                   </li>
                 ))}
               </ul>
 
-              {/* CTA block — button + sub-label grouped together */}
-              <div>
-                <Link
-                  href={tier.name === "Enterprise" ? "/contact" : "/register"}
-                  className={`block w-full text-center text-sm font-semibold py-3 rounded-xl transition-all ${
-                    tier.highlight
-                      ? "bg-orange-500 hover:bg-orange-600 text-white shadow-sm shadow-orange-200"
-                      : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
-                  }`}
-                >
-                  {tier.cta}
-                </Link>
-                {/* ✅ ctaSub rendered for all tiers — Enterprise shows "Custom onboarding included" */}
-                {tier.ctaSub && (
-                  <p className="text-xs text-zinc-400 text-center mt-2">{tier.ctaSub}</p>
-                )}
-              </div>
+              <Link
+                href={tier.name === "Enterprise" ? "/contact" : "/register"}
+                className={`block text-center font-semibold py-3 rounded-xl transition-colors text-sm ${
+                  tier.highlight
+                    ? "bg-orange-500 hover:bg-orange-600 text-white"
+                    : "bg-zinc-900 hover:bg-zinc-800 text-white"
+                }`}
+              >
+                {tier.cta}
+              </Link>
+              <p className="text-xs text-zinc-400 text-center mt-2">{tier.ctaSub}</p>
             </div>
           ))}
         </div>
-        
-        <div className="mt-10 text-center">
-          <p className="text-xs text-zinc-400">
-            No setup fees · Cancel anytime · Instant activation · Works on any device
-          </p>
-          <p className="text-xs text-zinc-500 mt-2">
-            All plans include VAT. Need a custom quote?{" "}
-            <Link href="/contact" className="underline underline-offset-2 hover:text-zinc-600 transition-colors">
-              Talk to us
-            </Link>
-          </p>
-        </div>
+
+        <p className="text-center text-sm text-zinc-500 mt-10">
+          Not sure which plan fits?{" "}
+          <Link href="/contact" className="text-orange-500 underline underline-offset-2 hover:text-orange-600 transition-colors">
+            Talk to us
+          </Link>
+          {" "}— we&apos;ll help you pick.
+        </p>
       </div>
     </section>
   )
 }
 
-// ─── CTA ───────────────────────────────────────────────────────────────────────
+// ─── Final CTA ─────────────────────────────────────────────────────────────────
 
-function CTA() {
+function FinalCTA() {
   return (
     <section className="py-24 px-6 bg-[#0f172a]">
       <div className="max-w-2xl mx-auto text-center">
-        <h2 className="text-3xl font-bold text-white">
-          Ready to modernise your restaurant?
+        <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight">
+          Try Mezzani free for 14 days
         </h2>
-        <p className="mt-4 text-zinc-400">
-          Join restaurants across Africa using Mezzani to serve faster, track better and grow smarter.
+        <p className="mt-4 text-zinc-400 leading-relaxed">
+          Set up your menu, print your QR codes and take your first order today.
+          No card, no contract, no hardware to buy.
         </p>
-        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             href="/register"
-            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-sm"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-sm"
           >
-            Start for free →
+            Start your free trial
+            <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
-            href="/login"
-            className="bg-white/10 hover:bg-white/20 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-sm"
+            href="/contact"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-sm"
           >
-            Sign in
+            Talk to us first
           </Link>
         </div>
-        {/* UX IMPROVEMENT: repeat the no-risk message at the final conversion point */}
-        <p className="mt-4 text-xs text-zinc-500">14-day free trial · No credit card required</p>
       </div>
     </section>
   )
@@ -635,18 +683,13 @@ function Footer() {
             <ChefHat className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="text-sm font-bold text-white">Mezzani</span>
-          <span className="text-zinc-500 text-sm">— Restaurant OS for Africa</span>
         </div>
         <div className="flex items-center gap-6">
-          <Link href="/login" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Login</Link>
-          <Link href="/register" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Register</Link>
-          <Link href="/dashboard" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Dashboard</Link>
-          <Link href="/kitchen" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Kitchen</Link>
-          {/* UX IMPROVEMENT: contact link in footer — Enterprise users looking for sales often
-              land here after scanning the whole page */}
+          <a href="#pricing" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Pricing</a>
           <Link href="/contact" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Contact</Link>
+          <Link href="/login" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Log in</Link>
         </div>
-        <p className="text-xs text-zinc-600">© 2026 Mezzani. All rights reserved.</p>
+        <p className="text-xs text-zinc-600">© {new Date().getFullYear()} Mezzani · Built in Nairobi 🇰🇪</p>
       </div>
     </footer>
   )
@@ -656,17 +699,19 @@ function Footer() {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen">
+    <main className="bg-white">
       <Navbar />
       <Hero />
-      <TrustBar />
-      <Stats />
-      <Features />
-      <QRCodesSection />
+      <Problem />
       <HowItWorks />
+      <DashboardPreview />
+      <QRCodesSection />
+      <MezzaniAI />
+      <Stats />
+      <Proof />
       <Pricing />
-      <CTA />
+      <FinalCTA />
       <Footer />
-    </div>
+    </main>
   )
 }
