@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, ShieldCheck } from "lucide-react"
+import { Loader2 } from "lucide-react"
+import { Logo } from "@/components/brand/logo"
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email"),
@@ -26,10 +27,8 @@ export default function SuperAdminLoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-zinc-950">
       <div className="w-full max-w-md px-4">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center mx-auto mb-3">
-            <ShieldCheck className="w-6 h-6 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white">Mezzani Platform</h1>
+          <Logo variant="horizontal" tone="reversed" className="h-9 mx-auto" />
+          <h1 className="text-lg font-semibold text-white mt-5">Platform admin</h1>
           <p className="text-zinc-400 mt-1 text-sm">Superadmin access only</p>
         </div>
 

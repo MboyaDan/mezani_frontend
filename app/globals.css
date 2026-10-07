@@ -5,9 +5,17 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Mezzani brand */
+  --color-brand: var(--brand);
+  --color-brand-light: var(--brand-light);
+  --color-brand-ink: var(--brand-ink);
+  --color-charcoal: var(--charcoal);
+  --color-cream: var(--cream);
+  --color-cream-border: var(--cream-border);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  /* Was `var(--font-sans)` (self-referencing) which made everything fall back to serif */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -49,6 +57,13 @@
 }
 
 :root {
+  /* Brand palette (from the Mezzani identity files) */
+  --brand: #D9611B;        /* mark on light surfaces */
+  --brand-light: #EC7A33;  /* mark on dark surfaces */
+  --brand-ink: #B14A0C;    /* orange for text/links on cream, 4.8:1 */
+  --charcoal: #1E2529;
+  --cream: #F6F2E9;
+  --cream-border: #E2DACA;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

@@ -1,8 +1,9 @@
 "use client"
 import { useState, useEffect } from "react"
 import { subscriptionAPI, Plan } from "@/lib/api/subscription"
-import { Loader2, ChefHat, Check } from "lucide-react"
+import { Loader2, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Logo } from "@/components/brand/logo"
 
 export default function RenewSubscriptionPage() {
   const [plans, setPlans] = useState<Plan[]>([])
@@ -39,9 +40,7 @@ export default function RenewSubscriptionPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center px-6 py-16">
-      <div className="w-16 h-16 rounded-2xl bg-orange-500 flex items-center justify-center mb-6">
-        <ChefHat className="w-8 h-8 text-white" />
-      </div>
+      <Logo variant="horizontal" className="h-9 mb-8" />
 
       <h1 className="text-3xl font-bold text-zinc-900 text-center">Renew your subscription</h1>
       <p className="text-zinc-500 mt-2 text-center max-w-md">

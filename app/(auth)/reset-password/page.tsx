@@ -4,13 +4,11 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Loader2, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import API from "@/lib/client"
+import { AuthShell, AuthHeading } from "@/components/auth/auth-shell"
+import { AuthPasswordField, AuthSubmit, AuthError, authLinkClass } from "@/components/auth/fields"
 
 const schema = z.object({
   new_password: z.string().min(6, "Password must be at least 6 characters"),
@@ -54,89 +52,61 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div className="text-center space-y-3">
-        <p className="text-sm text-red-500">Invalid reset link</p>
-        <Link href="/forgot-password" className="text-sm text-orange-500 hover:underline">
-          Request a new one
-        </Link>
+      <div>
+        <AuthHeading
+          title="This reset link isn't valid"
+          description="It may have expired or already been used. Request a fresh one from the sign in page."
+        />
+        <Link href="/login" className={authLinkClass}>Back to sign in</Link>
+      </div>
+    )
+  }
+
+  if (done) {
+    return (
+      <div role="status">
+        <div className="mb-5 flex size-11 items-center justify-center rounded-full bg-emerald-100">
+          <CheckCircle2 className="size-5 text-emerald-700" aria-hidden />
+        </div>
+        <AuthHeading title="Password updated" description="Taking you back to sign in…" />
       </div>
     )
   }
 
   return (
-    <Card className="rounded-2xl border border-zinc-200 shadow-sm">
-      <CardHeader>
-        <CardTitle>Set new password</CardTitle>
-        <CardDescription>Enter your new password below</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {done ? (
-          <div className="text-center space-y-3 py-4">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-            </div>
-            <p className="text-sm font-medium text-zinc-900">Password updated!</p>
-            <p className="text-xs text-zinc-500">Redirecting to login...</p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label>New Password</Label>
-              <Input
-                type="password"
-                placeholder="Min 6 characters"
-                {...register("new_password")}
-                className="rounded-xl"
-              />
-              {errors.new_password && (
-                <p className="text-sm text-red-500">{errors.new_password.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Confirm Password</Label>
-              <Input
-                type="password"
-                placeholder="Repeat password"
-                {...register("confirm_password")}
-                className="rounded-xl"
-              />
-              {errors.confirm_password && (
-                <p className="text-sm text-red-500">{errors.confirm_password.message}</p>
-              )}
-            </div>
-
-            {error && (
-              <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-600">
-                {error}
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
-              disabled={loading}
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Password"}
-            </Button>
-          </form>
-        )}
-      </CardContent>
-    </Card>
+    <div>
+      <AuthHeading title="Set a new password" description="Choose a password you haven't used before." />
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+        <AuthPasswordField
+          id="new_password"
+          label="New password"
+          autoComplete="new-password"
+          autoFocus
+          placeholder="At least 6 characters"
+          error={errors.new_password?.message}
+          {...register("new_password")}
+        />
+        <AuthPasswordField
+          id="confirm_password"
+          label="Confirm password"
+          autoComplete="new-password"
+          placeholder="Repeat your password"
+          error={errors.confirm_password?.message}
+          {...register("confirm_password")}
+        />
+        {error && <AuthError>{error}</AuthError>}
+        <AuthSubmit loading={loading} loadingLabel="Updating…">Update password</AuthSubmit>
+      </form>
+    </div>
   )
 }
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50">
-      <div className="w-full max-w-md px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-zinc-900">Mezzani</h1>
-          <p className="text-zinc-500 mt-1">Restaurant Management</p>
-        </div>
-        <Suspense fallback={<div className="text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-zinc-400" /></div>}>
-          <ResetPasswordForm />
-        </Suspense>
-      </div>
-    </div>
+    <AuthShell headline="Back in, in a moment.">
+      <Suspense fallback={<Loader2 className="mx-auto size-5 animate-spin text-charcoal/40" aria-label="Loading" />}>
+        <ResetPasswordForm />
+      </Suspense>
+    </AuthShell>
   )
 }

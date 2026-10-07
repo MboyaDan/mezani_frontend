@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useSidebar } from "@/components/layout/sidebar-context"
+import { Logo } from "@/components/brand/logo"
 
 const navItems = [
   { label: "Overview",   href: "/dashboard",            icon: LayoutDashboard, roles: ["owner", "manager"] },
@@ -77,12 +78,9 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-6 py-5 border-b border-white/10">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
-              <ChefHat className="w-4 h-4 text-white" />
-            </div>
-            <h1 className="text-lg font-bold tracking-tight">Mezzani</h1>
-          </div>
+          <Link href="/dashboard" aria-label="Mezzani dashboard" className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-light">
+            <Logo variant="horizontal" tone="reversed" className="h-6" />
+          </Link>
           <button
             onClick={close}
             className="md:hidden p-1 rounded-lg text-zinc-400 hover:bg-white/5 hover:text-white transition-colors"
@@ -94,12 +92,12 @@ export function Sidebar() {
 
         {/* NOW FROM JWT */}
         {user?.tname && (
-          <p className="text-xs text-zinc-300 font-medium mt-1 ml-9 truncate">
+          <p className="text-xs text-zinc-300 font-medium mt-3 truncate">
             {user.tname}
           </p>
         )}
 
-        <p className="text-xs text-zinc-500 mt-0.5 capitalize ml-9">
+        <p className="text-xs text-zinc-500 mt-0.5 capitalize">
           {user?.role ?? ""}
         </p>
       </div>

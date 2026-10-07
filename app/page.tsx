@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Logo } from "@/components/brand/logo"
 import { ChefHat, QrCode, BarChart3, Users, Zap, Download, ArrowRight, Sparkles, Check } from "lucide-react"
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -72,11 +73,8 @@ function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-zinc-100">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
-            <ChefHat className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-lg font-bold text-zinc-900">Mezzani</span>
+        <Link href="/" aria-label="Mezzani home" className="flex items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand">
+          <Logo variant="horizontal" className="h-7" />
         </Link>
         <div className="hidden md:flex items-center gap-8">
           <a href="#how-it-works" className="text-sm text-zinc-600 hover:text-zinc-900 transition-colors">How it works</a>
@@ -275,11 +273,8 @@ function DashboardPreview() {
           </div>
           <div className="flex">
             <div className="w-48 bg-gradient-to-b from-[#0f172a] to-[#111827] p-4 space-y-1 hidden md:block">
-              <div className="flex items-center gap-2 mb-4 px-2">
-                <div className="w-5 h-5 rounded bg-orange-500 flex items-center justify-center">
-                  <ChefHat className="w-3 h-3 text-white" />
-                </div>
-                <span className="text-xs font-bold text-white">Mezzani</span>
+              <div className="mb-4 px-2">
+                <Logo variant="horizontal" tone="reversed" className="h-5" />
               </div>
               {["Overview", "Orders", "Menu", "Tables", "Staff", "Analytics"].map((item, i) => (
                 <div
@@ -678,12 +673,7 @@ function Footer() {
   return (
     <footer className="bg-[#0f172a] border-t border-white/10 py-8 px-6">
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-orange-500 flex items-center justify-center">
-            <ChefHat className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span className="text-sm font-bold text-white">Mezzani</span>
-        </div>
+        <Logo variant="horizontal" tone="reversed" className="h-6" />
         <div className="flex items-center gap-6">
           <a href="#pricing" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Pricing</a>
           <Link href="/contact" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Contact</Link>

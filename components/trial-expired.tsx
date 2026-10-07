@@ -2,9 +2,10 @@
 import { useState, useEffect } from "react"
 import { clearTokens } from "@/lib/auth"
 import { useUser } from "@/hooks/useUser"
-import { ChefHat, Lock } from "lucide-react"
+import { Lock } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { Logo } from "@/components/brand/logo"
 
 export function TrialExpiredGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useUser()
@@ -28,7 +29,7 @@ export function TrialExpiredGuard({ children }: { children: React.ReactNode }) {
       <div className="w-full max-w-md text-center space-y-6">
         <div className="relative w-16 h-16 mx-auto">
           <div className="w-16 h-16 rounded-2xl bg-zinc-100 flex items-center justify-center">
-            <ChefHat className="w-8 h-8 text-zinc-300" />
+            <Logo variant="mark" className="h-7 opacity-40 grayscale" />
           </div>
           <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-red-500 flex items-center justify-center">
             <Lock className="w-3.5 h-3.5 text-white" />

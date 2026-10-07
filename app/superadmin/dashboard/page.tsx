@@ -6,6 +6,7 @@ import { getErrorMessage } from "@/lib/api/error"
 import { Loader2, RefreshCw, Building2, Users, ShoppingBag, TrendingUp, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
+import { Logo } from "@/components/brand/logo"
 
 interface Overview {
   tenant_count: number
@@ -68,9 +69,10 @@ export default function SuperAdminDashboard() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="border-b border-zinc-800 bg-zinc-900 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div>
-            <h1 className="font-bold text-white">Mezzani Platform</h1>
-            <p className="text-xs text-zinc-500">Superadmin</p>
+          <div className="flex items-center gap-4">
+            <Logo variant="horizontal" tone="reversed" className="h-6" />
+            <div className="h-6 w-px bg-zinc-700" aria-hidden />
+            <h1 className="text-sm font-medium text-zinc-300">Platform admin</h1>
           </div>
           <div className="flex items-center gap-2">
             <button

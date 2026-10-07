@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Geist } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/sonner"
@@ -9,8 +9,13 @@ const geist = Geist({
 })
 
 export const metadata: Metadata = {
-  title: "Mezzani",
-  description: "QR Ordering System",
+  title: { default: "Mezzani", template: "%s | Mezzani" },
+  description: "QR ordering and restaurant management for Kenyan restaurants",
+  applicationName: "Mezzani",
+}
+
+export const viewport: Viewport = {
+  themeColor: "#F6F2E9",
 }
 
 export default function RootLayout({

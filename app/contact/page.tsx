@@ -1,8 +1,9 @@
 "use client"
 import { useState } from "react"
 import Link from "next/link"
-import { ChefHat, Mail, MessageSquare, Loader2, CheckCircle2 } from "lucide-react"
+import { Mail, MessageSquare, Loader2, CheckCircle2 } from "lucide-react"
 import { contactAPI } from "@/lib/api/contact"
+import { Logo } from "@/components/brand/logo"
 
 export default function ContactPage() {
   const [name, setName] = useState("")
@@ -42,11 +43,8 @@ export default function ContactPage() {
       {/* Navbar */}
       <nav className="bg-white border-b border-zinc-100">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
-              <ChefHat className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-bold text-zinc-900">Mezzani</span>
+          <Link href="/" aria-label="Mezzani home" className="flex items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand">
+            <Logo variant="horizontal" className="h-7" />
           </Link>
           <Link
             href="/register"
