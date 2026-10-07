@@ -12,7 +12,7 @@ interface AuthShellProps {
 const DEFAULT_POINTS = [
   "A QR menu on every table, no app to download",
   "Orders reach the kitchen screen the moment they're placed",
-  "Cash and card settled against the bill, branch by branch",
+  "Cash, M-Pesa and card payments recorded against every bill",
 ]
 
 /**

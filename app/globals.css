@@ -143,3 +143,7 @@
     @apply font-sans;
   }
 }
+/* Anchor links (#pricing etc.) must clear the fixed navbar */
+html {
+  scroll-padding-top: 5rem;
+}

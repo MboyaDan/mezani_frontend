@@ -1,6 +1,9 @@
 import Link from "next/link"
+import Image from "next/image"
 import { Logo } from "@/components/brand/logo"
-import { ChefHat, QrCode, BarChart3, Users, Zap, Download, ArrowRight, Sparkles, Check } from "lucide-react"
+import { SiteNav } from "@/components/site/site-nav"
+import { SiteFooter } from "@/components/site/site-footer"
+import { QrCode, Download, ArrowRight, Sparkles, Check, X, Smartphone, UtensilsCrossed, BellRing, Banknote, CreditCard } from "lucide-react"
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -58,82 +61,95 @@ const tiers = [
   },
 ]
 
-// Honest, verifiable numbers only — no SLA claims we don't contractually
-// offer or actively monitor.
+// Only facts about the product itself; nothing we would need to measure or guarantee.
 const stats = [
-  { value: "< 30s", label: "Order reaches the kitchen" },
-  { value: "Zero", label: "Hardware required" },
-  { value: "~5 min", label: "Typical setup time" },
-  { value: "14 days", label: "Free trial" },
+  { value: "14 days", label: "Free trial, no card" },
+  { value: "0", label: "Hardware to buy" },
+  { value: "1 per table", label: "QR code, printed once" },
+  { value: "No app", label: "For guests to install" },
 ]
-
-// ─── Navbar ────────────────────────────────────────────────────────────────────
-
-function Navbar() {
-  return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-zinc-100">
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" aria-label="Mezzani home" className="flex items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand">
-          <Logo variant="horizontal" className="h-7" />
-        </Link>
-        <div className="hidden md:flex items-center gap-8">
-          <a href="#how-it-works" className="text-sm text-zinc-600 hover:text-zinc-900 transition-colors">How it works</a>
-          <a href="#mezzani-ai" className="text-sm text-zinc-600 hover:text-zinc-900 transition-colors">Mezzani AI</a>
-          <a href="#qr-codes" className="text-sm text-zinc-600 hover:text-zinc-900 transition-colors">QR Codes</a>
-          <a href="#pricing" className="text-sm text-zinc-600 hover:text-zinc-900 transition-colors">Pricing</a>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="text-sm font-medium text-zinc-700 hover:text-zinc-900 transition-colors">
-            Log in
-          </Link>
-          <Link
-            href="/register"
-            className="text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl transition-colors"
-          >
-            Get Started
-          </Link>
-        </div>
-      </div>
-    </nav>
-  )
-}
 
 // ─── Hero ──────────────────────────────────────────────────────────────────────
 
+const tickets = [
+  { table: 4, status: "New", age: "0:42", items: ["2 × Nyama Choma", "1 × Ugali", "2 × Soda"], chip: "bg-brand-light text-charcoal" },
+  { table: 7, status: "Preparing", age: "6:10", items: ["1 × Chicken Pilau", "1 × Kachumbari"], chip: "bg-amber-300/15 text-amber-300" },
+  { table: 12, status: "Ready", age: "11:35", items: ["2 × Beef Burger", "2 × Chips"], chip: "bg-emerald-400/15 text-emerald-300" },
+]
+
+/** What the kitchen sees. Static sample, but the same states the real kitchen screen uses. */
+function KitchenPanel() {
+  return (
+    <div className="rounded-2xl bg-charcoal p-5 text-cream shadow-2xl shadow-charcoal/20 ring-1 ring-charcoal/10 sm:p-6">
+      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <div>
+          <p className="text-sm font-semibold">Kitchen</p>
+          <p className="text-xs text-cream/50">Westlands Branch</p>
+        </div>
+        <span className="flex items-center gap-2 text-xs text-cream/60">
+          <span className="size-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse" aria-hidden />
+          Live
+        </span>
+      </div>
+
+      <ul className="mt-4 space-y-3">
+        {tickets.map((t) => (
+          <li key={t.table} className="rounded-xl bg-white/[0.06] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-base font-semibold">Table {t.table}</p>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-xs tabular-nums text-cream/50">{t.age}</span>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${t.chip}`}>{t.status}</span>
+              </div>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-cream/65">{t.items.join(" · ")}</p>
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-4 text-xs text-cream/40">Sample orders shown for illustration.</p>
+    </div>
+  )
+}
+
 function Hero() {
   return (
-    <section className="pt-32 pb-20 px-6 bg-[#F8FAFC]">
-      <div className="max-w-4xl mx-auto text-center">
-        <div className="inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-          🇰🇪 Now live in our first Nairobi restaurant
+    <section className="bg-cream px-6 pt-28 pb-20 lg:pt-36 lg:pb-28">
+      <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+        <div>
+          <p className="flex items-center gap-2 text-sm font-medium text-charcoal/70">
+            <span className="size-2 rounded-full bg-emerald-500 motion-safe:animate-pulse" aria-hidden />
+            Live in our first Nairobi restaurant
+          </p>
+          <h1 className="mt-5 text-4xl font-semibold leading-[1.05] tracking-tight text-balance text-charcoal sm:text-5xl lg:text-[3.5rem]">
+            The guest orders. The kitchen sees it.{" "}
+            <span className="text-brand-ink">Nobody shouts.</span>
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-charcoal/65">
+            QR ordering, a live kitchen screen, staff and sales in one system for
+            Kenyan restaurants. No expensive hardware, no complicated setup.
+          </p>
+          <div className="mt-9 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+            <Link
+              href="/register"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-charcoal px-7 text-[0.9375rem] font-medium text-cream transition-colors hover:bg-charcoal/90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+            >
+              Start your free trial
+              <ArrowRight className="size-4" aria-hidden />
+            </Link>
+            <a
+              href="#how-it-works"
+              className="inline-flex h-12 items-center px-1 text-[0.9375rem] font-medium text-charcoal underline decoration-charcoal/25 underline-offset-[6px] transition-colors hover:decoration-brand focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+            >
+              See how it works
+            </a>
+          </div>
+          <p className="mt-5 text-sm text-charcoal/50">
+            14-day free trial · No credit card · Works on any phone, tablet or computer
+          </p>
         </div>
-        <h1 className="text-5xl md:text-6xl font-bold text-zinc-900 leading-tight tracking-tight">
-          Run your restaurant{" "}
-          <span className="text-orange-500">without the chaos</span>
-        </h1>
-        <p className="mt-6 text-lg text-zinc-500 max-w-2xl mx-auto leading-relaxed">
-          Orders go from table to kitchen to service in real time. One simple system
-          for QR ordering, kitchen orders, staff and sales — without expensive
-          hardware or complicated setup.
-        </p>
-  <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-  <Link
-    href="/register"
-    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 py-4 rounded-2xl transition-all shadow-lg shadow-orange-100 text-sm"
-  >
-    Start your free trial →
-  </Link>
 
-  <a
-    href="#how-it-works"
-    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 font-semibold px-8 py-4 rounded-2xl transition-all text-sm"
-  >
-    See how it works
-  </a>
-</div>
-        <p className="mt-4 text-xs text-zinc-400">
-          14-day free trial · No credit card required · Works on any phone, tablet or computer
-        </p>
+        <KitchenPanel />
       </div>
     </section>
   )
@@ -159,8 +175,8 @@ function Problem() {
         </p>
         <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
           {pains.map((pain) => (
-            <div key={pain} className="flex items-start gap-3 bg-[#F8FAFC] border border-zinc-200 rounded-2xl p-4">
-              <span className="text-red-400 font-bold shrink-0 mt-0.5">✕</span>
+            <div key={pain} className="flex items-start gap-3 bg-cream border border-zinc-200 rounded-2xl p-4">
+              <X className="mt-0.5 size-4 shrink-0 text-red-500" aria-hidden />
               <p className="text-sm text-zinc-600 leading-relaxed">{pain}</p>
             </div>
           ))}
@@ -182,71 +198,61 @@ function HowItWorks() {
       actor: "CUSTOMER",
       title: "Scan the QR code on the table",
       desc: "No app to download. No account to create. The menu opens straight in their phone browser.",
-      icon: QrCode,
     },
     {
       num: "02",
       actor: "CUSTOMER / WAITER",
       title: "Order goes into Mezzani",
       desc: "Guests order from their phone, or your waiter places it for them. Either way it lands in one place.",
-      icon: ChefHat,
     },
     {
       num: "03",
       actor: "KITCHEN",
       title: "The kitchen sees it instantly",
       desc: "Orders appear on the kitchen screen the moment they're placed — no shouting, no paper tickets, nothing lost.",
-      icon: Zap,
     },
     {
       num: "04",
       actor: "STAFF",
       title: "Status updates as it moves",
       desc: "Preparing → ready → served. Everyone knows where every order stands without asking.",
-      icon: Users,
     },
     {
       num: "05",
       actor: "OWNER",
       title: "You see what's actually happening",
       desc: "Orders, revenue, best sellers, busiest hours — live, from your phone, wherever you are.",
-      icon: BarChart3,
     },
   ]
 
   return (
-    <section id="how-it-works" className="py-24 px-6 bg-[#F8FAFC]">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold text-zinc-900">From table to kitchen to dashboard</h2>
-          <p className="mt-3 text-zinc-500">One connected system. No hardware. No training weekend.</p>
+    <section id="how-it-works" className="bg-cream px-6 py-24">
+      <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-20">
+        <div className="lg:sticky lg:top-28 lg:self-start">
+          <h2 className="text-3xl font-semibold tracking-tight text-balance text-charcoal sm:text-4xl">
+            From table to kitchen to dashboard
+          </h2>
+          <p className="mt-4 max-w-sm text-charcoal/60">
+            One connected system. No hardware. No training weekend.
+          </p>
         </div>
-        <div className="space-y-0">
-          {steps.map((step, i) => {
-            const Icon = step.icon
-            return (
-              <div key={step.num} className="flex gap-6 pb-10 relative">
-                {i < steps.length - 1 && (
-                  <div className="absolute left-5 top-10 bottom-0 w-px bg-zinc-200" />
-                )}
-                <div className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0 relative z-10">
-                  <Icon className="w-4 h-4" />
-                </div>
-                <div className="pt-1">
-                  <p className="text-xs font-bold text-orange-500 tracking-wider mb-1">
-                    {step.num} — {step.actor}
-                  </p>
-                  <h3 className="text-base font-bold text-zinc-900">{step.title}</h3>
-                  <p className="text-sm text-zinc-500 mt-1 leading-relaxed">{step.desc}</p>
-                </div>
+        <ol className="divide-y divide-cream-border border-y border-cream-border">
+          {steps.map((step) => (
+            <li key={step.num} className="grid grid-cols-[3.5rem_1fr] gap-4 py-7">
+              <span className="text-3xl font-semibold tabular-nums leading-none text-brand">{step.num}</span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-charcoal/45">{step.actor}</p>
+                <h3 className="mt-1.5 text-lg font-semibold text-charcoal">{step.title}</h3>
+                <p className="mt-1.5 leading-relaxed text-charcoal/65">{step.desc}</p>
               </div>
-            )
-          })}
-        </div>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
   )
 }
+
 // ─── Live Dashboard Preview ────────────────────────────────────────────────────
 
 function DashboardPreview() {
@@ -268,11 +274,11 @@ function DashboardPreview() {
               <div className="w-3 h-3 rounded-full bg-emerald-400" />
             </div>
             <div className="flex-1 bg-white border border-zinc-200 rounded-lg px-3 py-1 text-xs text-zinc-400 text-center">
-              mezani.vercel.app/dashboard
+              Overview · Westlands Branch
             </div>
           </div>
           <div className="flex">
-            <div className="w-48 bg-gradient-to-b from-[#0f172a] to-[#111827] p-4 space-y-1 hidden md:block">
+            <div className="w-48 bg-gradient-to-b from-charcoal to-charcoal p-4 space-y-1 hidden md:block">
               <div className="mb-4 px-2">
                 <Logo variant="horizontal" tone="reversed" className="h-5" />
               </div>
@@ -281,7 +287,7 @@ function DashboardPreview() {
                   key={item}
                   className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs ${
                     i === 0
-                      ? "bg-orange-500/10 text-orange-400 border-l-2 border-orange-500"
+                      ? "bg-brand-light/10 text-brand-light border-l-2 border-brand-light"
                       : "text-zinc-500"
                   }`}
                 >
@@ -290,7 +296,7 @@ function DashboardPreview() {
                 </div>
               ))}
             </div>
-            <div className="flex-1 p-5 bg-[#F8FAFC]">
+            <div className="flex-1 p-5 bg-cream">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                 {[
                   { label: "Today's Orders", value: "63" },
@@ -320,7 +326,7 @@ function DashboardPreview() {
                         <span className="text-xs text-zinc-600">Table {o.table}</span>
                       </div>
                       <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                        o.status === "new" ? "bg-orange-100 text-orange-700" :
+                        o.status === "new" ? "bg-brand/15 text-brand-ink" :
                         o.status === "preparing" ? "bg-yellow-100 text-yellow-700" :
                         "bg-emerald-100 text-emerald-700"
                       }`}>
@@ -344,7 +350,7 @@ function DashboardPreview() {
                           <span className="text-xs text-zinc-400">{d.orders}</span>
                         </div>
                         <div className="h-1 bg-zinc-100 rounded-full">
-                          <div className="h-full bg-orange-500 rounded-full" style={{ width: `${(d.orders / 45) * 100}%` }} />
+                          <div className="h-full bg-brand rounded-full" style={{ width: `${(d.orders / 45) * 100}%` }} />
                         </div>
                       </div>
                     </div>
@@ -370,8 +376,8 @@ function QRCodesSection() {
       <div className="max-w-5xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
-            <span className="inline-block bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
-              📱 Included on every plan
+            <span className="inline-block bg-brand/10 border border-brand/25 text-brand-ink text-xs font-bold px-3 py-1.5 rounded-full mb-4">
+              Included on every plan
             </span>
             <h2 className="text-3xl font-bold text-zinc-900 mb-4">
               Turn every table into an ordering point
@@ -389,14 +395,14 @@ function QRCodesSection() {
                 "Update your menu anytime, the QR stays the same",
               ].map((point) => (
                 <li key={point} className="flex items-start gap-2.5 text-sm text-zinc-600">
-                  <span className="text-orange-500 font-bold shrink-0 mt-0.5">✓</span>
+                  <Check className="mt-0.5 size-4 shrink-0 text-brand-ink" aria-hidden />
                   {point}
                 </li>
               ))}
             </ul>
             <Link
               href="/register"
-              className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm"
+              className="inline-flex items-center gap-2 bg-charcoal hover:bg-charcoal/90 text-cream font-semibold px-6 py-3 rounded-xl transition-colors text-sm"
             >
               <Download className="w-4 h-4" />
               Get your QR codes →
@@ -404,7 +410,7 @@ function QRCodesSection() {
           </div>
 
           <div className="flex flex-col gap-4">
-            <div className="bg-[#0f172a] rounded-2xl p-6 flex items-center gap-5">
+            <div className="bg-charcoal rounded-2xl p-6 flex items-center gap-5">
               <div className="w-24 h-24 bg-white rounded-xl flex items-center justify-center shrink-0">
                 <QrCode className="w-14 h-14 text-zinc-900" />
               </div>
@@ -420,12 +426,12 @@ function QRCodesSection() {
 
             <div className="grid grid-cols-3 gap-3">
               {[
-                { step: "1", label: "Customer scans", icon: "📱" },
-                { step: "2", label: "Browses & orders", icon: "🍽️" },
-                { step: "3", label: "Kitchen gets it", icon: "🔔" },
+                { step: "1", label: "Customer scans", icon: Smartphone },
+                { step: "2", label: "Browses & orders", icon: UtensilsCrossed },
+                { step: "3", label: "Kitchen gets it", icon: BellRing },
               ].map((s) => (
-                <div key={s.step} className="bg-[#F8FAFC] border border-zinc-200 rounded-xl p-3 text-center">
-                  <div className="text-xl mb-1">{s.icon}</div>
+                <div key={s.step} className="bg-cream border border-zinc-200 rounded-xl p-3 text-center">
+                  <s.icon className="mx-auto mb-2 size-5 text-brand-ink" aria-hidden />
                   <p className="text-xs text-zinc-500">{s.label}</p>
                 </div>
               ))}
@@ -437,15 +443,94 @@ function QRCodesSection() {
   )
 }
 
+// ─── In the restaurant (photo) ─────────────────────────────────────────────────
+
+function InTheRestaurant() {
+  return (
+    <section className="bg-white px-6 py-20">
+      <figure className="mx-auto max-w-6xl">
+        <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-charcoal sm:aspect-[16/9]">
+          <Image
+            src="/images/restaurant-floor.webp"
+            alt="A restaurant manager checking sales and kitchen orders on a Mezzani dashboard on a tablet at the counter, with the dining room behind him."
+            fill
+            sizes="(min-width: 1152px) 1152px, 100vw"
+            className="object-cover object-[72%_50%]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-charcoal/80 via-charcoal/10 to-transparent" aria-hidden />
+          <figcaption className="absolute inset-x-0 bottom-0 p-6 sm:p-10">
+            <p className="max-w-lg text-2xl font-semibold leading-tight tracking-tight text-balance text-cream sm:text-3xl">
+              Built for the counter, the pass and the floor, not the back office.
+            </p>
+          </figcaption>
+        </div>
+        <p className="mt-3 text-right text-xs text-charcoal/40">Illustrative image.</p>
+      </figure>
+    </section>
+  )
+}
+
+// ─── Payments ──────────────────────────────────────────────────────────────────
+
+const payMethods = [
+  { icon: Banknote, name: "Cash", desc: "Your cashier collects it, then confirms it in Mezzani." },
+  { icon: Smartphone, name: "M-Pesa", desc: "Your guest pays you directly. The cashier records it against the bill." },
+  { icon: CreditCard, name: "Card", desc: "Taken the way you already take cards, then recorded against the bill." },
+]
+
+function PaymentsSection() {
+  return (
+    <section id="payments" className="bg-cream px-6 py-24">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2 lg:gap-20">
+        <div>
+          <h2 className="text-3xl font-semibold tracking-tight text-balance text-charcoal sm:text-4xl">
+            Take payment the way your guests pay.
+          </h2>
+          <p className="mt-4 max-w-lg text-lg leading-relaxed text-charcoal/65">
+            Your cashier settles each bill however the guest prefers and marks it paid in Mezzani.
+            We never hold or move your money, so it goes straight from your guest to you.
+          </p>
+          <ul className="mt-8 space-y-3 text-charcoal/75">
+            {[
+              "A bill isn't marked paid until your cashier confirms it",
+              "Every payment is recorded by method, amount and time",
+              "Cash, M-Pesa and card takings are easy to reconcile at close",
+            ].map((point) => (
+              <li key={point} className="flex items-start gap-2.5 text-sm">
+                <Check className="mt-0.5 size-4 shrink-0 text-brand-ink" aria-hidden />
+                {point}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <ul className="space-y-3">
+          {payMethods.map((m) => (
+            <li key={m.name} className="flex items-start gap-4 rounded-2xl border border-cream-border bg-white p-5">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-charcoal text-brand-light">
+                <m.icon className="size-5" aria-hidden />
+              </span>
+              <div>
+                <p className="font-semibold text-charcoal">{m.name}</p>
+                <p className="mt-1 text-sm leading-relaxed text-charcoal/65">{m.desc}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )
+}
+
 // ─── Mezzani AI ────────────────────────────────────────────────────────────────
 
 function MezzaniAI() {
   return (
-    <section id="mezzani-ai" className="py-24 px-6 bg-[#0f172a]">
+    <section id="mezzani-ai" className="py-24 px-6 bg-charcoal">
       <div className="max-w-5xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
-            <span className="inline-flex items-center gap-2 bg-orange-500/10 text-orange-400 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
+            <span className="inline-flex items-center gap-2 bg-brand-light/10 text-brand-light text-xs font-bold px-3 py-1.5 rounded-full mb-4">
               <Sparkles className="w-3 h-3" />
               Included on Enterprise
             </span>
@@ -466,7 +551,7 @@ function MezzaniAI() {
                 "How many orders are still in the kitchen?",
               ].map((q) => (
                 <li key={q} className="flex items-start gap-2.5 text-sm text-zinc-300">
-                  <span className="text-orange-400 font-bold shrink-0 mt-0.5">›</span>
+                  <span className="text-brand-light font-bold shrink-0 mt-0.5">›</span>
                   {q}
                 </li>
               ))}
@@ -476,14 +561,14 @@ function MezzaniAI() {
           {/* Chat mockup */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-white/10">
-              <div className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <span className="text-sm font-bold text-white">Mezzani AI</span>
             </div>
 
             <div className="flex justify-end">
-              <div className="bg-orange-500 text-white text-sm rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%]">
+              <div className="bg-brand-light text-charcoal text-sm rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%]">
                 What were my best-selling dishes this week?
               </div>
             </div>
@@ -497,7 +582,7 @@ function MezzaniAI() {
             </div>
 
             <div className="flex justify-end">
-              <div className="bg-orange-500 text-white text-sm rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%]">
+              <div className="bg-brand-light text-charcoal text-sm rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%]">
                 Anything running low?
               </div>
             </div>
@@ -523,11 +608,11 @@ function MezzaniAI() {
 
 function Stats() {
   return (
-    <section className="bg-[#0f172a] py-16 px-6">
+    <section className="bg-charcoal py-16 px-6">
       <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
         {stats.map((stat) => (
           <div key={stat.label} className="text-center">
-            <p className="text-3xl font-bold text-orange-400">{stat.value}</p>
+            <p className="text-3xl font-bold text-brand-light">{stat.value}</p>
             <p className="text-sm text-zinc-400 mt-1">{stat.label}</p>
           </div>
         ))}
@@ -566,7 +651,7 @@ function Proof() {
 
 function Pricing() {
   return (
-    <section id="pricing" className="py-24 px-6 bg-[#F8FAFC]">
+    <section id="pricing" className="py-24 px-6 bg-cream">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl font-bold text-zinc-900">Simple, transparent pricing</h2>
@@ -578,13 +663,13 @@ function Pricing() {
               key={tier.name}
               className={`rounded-2xl border p-6 relative flex flex-col bg-white ${
                 tier.highlight
-                  ? "border-orange-400 shadow-lg shadow-orange-50"
+                  ? "border-charcoal shadow-lg shadow-charcoal/5"
                   : "border-zinc-200"
               }`}
             >
               {tier.highlight && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                  <span className="bg-brand-ink text-white text-xs font-bold px-3 py-1 rounded-full">
                     Most Popular
                   </span>
                 </div>
@@ -611,7 +696,7 @@ function Pricing() {
                 href={tier.name === "Enterprise" ? "/contact" : "/register"}
                 className={`block text-center font-semibold py-3 rounded-xl transition-colors text-sm ${
                   tier.highlight
-                    ? "bg-orange-500 hover:bg-orange-600 text-white"
+                    ? "bg-charcoal hover:bg-charcoal/90 text-cream"
                     : "bg-zinc-900 hover:bg-zinc-800 text-white"
                 }`}
               >
@@ -624,7 +709,7 @@ function Pricing() {
 
         <p className="text-center text-sm text-zinc-500 mt-10">
           Not sure which plan fits?{" "}
-          <Link href="/contact" className="text-orange-500 underline underline-offset-2 hover:text-orange-600 transition-colors">
+          <Link href="/contact" className="text-brand-ink underline underline-offset-2 hover:text-brand-ink transition-colors">
             Talk to us
           </Link>
           {" "}— we&apos;ll help you pick.
@@ -638,7 +723,7 @@ function Pricing() {
 
 function FinalCTA() {
   return (
-    <section className="py-24 px-6 bg-[#0f172a]">
+    <section className="py-24 px-6 bg-charcoal">
       <div className="max-w-2xl mx-auto text-center">
         <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight">
           Try Mezzani free for 14 days
@@ -650,7 +735,7 @@ function FinalCTA() {
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             href="/register"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 py-4 rounded-2xl transition-all text-sm"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-brand-light hover:bg-brand-light/90 text-charcoal font-semibold px-8 py-4 rounded-2xl transition-all text-sm"
           >
             Start your free trial
             <ArrowRight className="w-4 h-4" />
@@ -667,41 +752,25 @@ function FinalCTA() {
   )
 }
 
-// ─── Footer ────────────────────────────────────────────────────────────────────
-
-function Footer() {
-  return (
-    <footer className="bg-[#0f172a] border-t border-white/10 py-8 px-6">
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-        <Logo variant="horizontal" tone="reversed" className="h-6" />
-        <div className="flex items-center gap-6">
-          <a href="#pricing" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Pricing</a>
-          <Link href="/contact" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Contact</Link>
-          <Link href="/login" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Log in</Link>
-        </div>
-        <p className="text-xs text-zinc-600">© {new Date().getFullYear()} Mezzani · Built in Nairobi 🇰🇪</p>
-      </div>
-    </footer>
-  )
-}
-
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
   return (
     <main className="bg-white">
-      <Navbar />
+      <SiteNav />
       <Hero />
+      <InTheRestaurant />
       <Problem />
       <HowItWorks />
       <DashboardPreview />
       <QRCodesSection />
+      <PaymentsSection />
       <MezzaniAI />
       <Stats />
       <Proof />
       <Pricing />
       <FinalCTA />
-      <Footer />
+      <SiteFooter />
     </main>
   )
 }
