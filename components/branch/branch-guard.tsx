@@ -32,7 +32,7 @@ export function BranchGuard({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex flex-col flex-1 items-center justify-center bg-[#F8FAFC]">
+      <div className="flex flex-col flex-1 items-center justify-center bg-cream">
         <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
       </div>
     )
@@ -41,10 +41,10 @@ export function BranchGuard({ children }: { children: React.ReactNode }) {
   // Has 2+ branches but none selected → force selection
   if (user?.role === "owner" && !branchId && branches.length > 1) {
     return (
-      <div className="flex flex-col flex-1 items-center justify-center bg-[#F8FAFC] p-6">
+      <div className="flex flex-col flex-1 items-center justify-center bg-cream p-6">
         <div className="w-full max-w-sm space-y-4">
           <div className="text-center space-y-1">
-            <div className="w-12 h-12 rounded-2xl bg-[#0f172a] flex items-center justify-center mx-auto mb-4">
+            <div className="w-12 h-12 rounded-2xl bg-charcoal flex items-center justify-center mx-auto mb-4">
               <GitBranch className="w-6 h-6 text-white" />
             </div>
             <h2 className="text-lg font-bold text-zinc-900">Select a Branch</h2>
@@ -60,9 +60,9 @@ export function BranchGuard({ children }: { children: React.ReactNode }) {
                   selectBranch(branch.ID, branch.Name)
                   window.location.reload()
                 }}
-                className="w-full flex items-center gap-4 p-4 bg-white border border-zinc-200 rounded-2xl hover:border-orange-300 hover:shadow-sm transition-all text-left"
+                className="w-full flex items-center gap-4 p-4 bg-white border border-cream-border rounded-2xl hover:border-brand/30 hover:shadow-sm transition-all text-left"
               >
-                <div className="w-10 h-10 rounded-xl bg-[#0f172a] text-white text-sm font-bold flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-charcoal text-white text-sm font-bold flex items-center justify-center shrink-0">
                   {branch.Name.slice(0, 2).toUpperCase()}
                 </div>
                 <div>

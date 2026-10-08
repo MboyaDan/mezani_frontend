@@ -2,41 +2,48 @@
 
 import { useUser } from "@/hooks/useUser"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Bell, Menu } from "lucide-react"
+import { Menu } from "lucide-react"
 import { useSidebar } from "@/components/layout/sidebar-context"
 
 interface TopbarProps {
   title: string
 }
 
+function initialsFrom(...sources: (string | undefined)[]): string {
+  const source = sources.find((s) => s && s.trim())
+  if (!source) return ""
+  const words = source.trim().split(/[\s@._-]+/).filter(Boolean)
+  return (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2)).toUpperCase()
+}
+
 export function Topbar({ title }: TopbarProps) {
   const { user, loading } = useUser()
   const { open } = useSidebar()
 
-  const userInitials =
-    user?.role?.slice(0, 2).toUpperCase() ?? ".."
+  const initials = loading ? "" : initialsFrom(user?.name, user?.email, user?.tname, user?.role)
+  const displayName = user?.name || user?.email
 
   return (
-    <header className="h-16 border-b border-zinc-200 bg-white flex items-center gap-3 justify-between px-4 md:px-6 sticky top-0 z-10">
-      <div className="flex items-center gap-3 min-w-0">
+    <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-3 border-b border-cream-border bg-white px-4 md:px-6">
+      <div className="flex min-w-0 items-center gap-3">
         <button
           onClick={open}
-          className="md:hidden p-2 -ml-2 rounded-lg hover:bg-zinc-100 transition-colors shrink-0"
+          className="-ml-2 flex size-11 shrink-0 items-center justify-center rounded-lg text-charcoal/70 transition-colors hover:bg-charcoal/5 focus-visible:outline-2 focus-visible:outline-brand md:hidden"
           aria-label="Open menu"
         >
-          <Menu className="w-5 h-5 text-zinc-600" />
+          <Menu className="size-5" />
         </button>
-        <h2 className="text-lg font-semibold text-zinc-900 truncate">{title}</h2>
+        <h1 className="truncate text-lg font-semibold tracking-tight text-charcoal">{title}</h1>
       </div>
 
       <div className="flex items-center gap-3">
-        <button className="relative p-2 rounded-lg hover:bg-zinc-100 transition-colors">
-          <Bell className="w-5 h-5 text-zinc-500" />
-        </button>
-
-        <Avatar className="h-8 w-8">
-          <AvatarFallback className="bg-zinc-900 text-white text-xs">
-            {loading ? ".." : userInitials}
+        <div className="hidden text-right leading-tight sm:block">
+          {displayName && <p className="max-w-48 truncate text-sm font-medium text-charcoal">{displayName}</p>}
+          {user?.role && <p className="text-xs capitalize text-charcoal/50">{user.role}</p>}
+        </div>
+        <Avatar className="size-9">
+          <AvatarFallback className="bg-charcoal text-xs font-medium text-cream">
+            {initials || ".."}
           </AvatarFallback>
         </Avatar>
       </div>

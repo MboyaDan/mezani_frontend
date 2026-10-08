@@ -20,6 +20,11 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
   const [connected, setConnected] = useState(false)
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(() => new Set())
 
+  const ordersRef = useRef<KitchenOrder[]>(initialOrders)
+  useEffect(() => {
+    ordersRef.current = orders
+  }, [orders])
+
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMounted = useRef(false)
@@ -45,18 +50,21 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
             table_number: number
             status: string
             created_at: string
+            note?: string
             items: Array<{ name: string; quantity: number; price: number }>
           }>
         >
       })
       .then((data) => {
         const mapped: KitchenOrder[] = data
-          .filter((o) => o.status !== "served" && o.status !== "paid")
+          .filter((o) => !["served", "paid", "closed"].includes(o.status))
           .map((o) => ({
             id: o.id,
             tableNumber: o.table_number,
             status: o.status,
             items: o.items.map((i) => ({ name: i.name, qty: i.quantity })),
+            // Without this, a guest's note showed on the live ticket but vanished on refresh.
+            note: o.note ?? "",
             createdAt: new Date(o.created_at),
           }))
         setOrders(mapped)
@@ -93,7 +101,6 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
 
   // ─── connect ────────────────────────────────────────────────────────────────
   const connect = useCallback(() => {
-    console.log("🔌 connect() called", { branchId, isMounted: isMounted.current })
 
     if (!branchId) return
 
@@ -122,11 +129,6 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
     wsRef.current = ws
 
     ws.onopen = () => {
-      console.log("✅ Kitchen WebSocket connected", {
-        branchId,
-        url: wsUrl,
-        readyState: ws.readyState,
-      })
 
       if (!isMounted.current) return
 
@@ -139,17 +141,13 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
     }
 
     ws.onmessage = (event) => {
-      console.log("📩 RAW WS MESSAGE:", event.data)
 
       if (!isMounted.current) return
 
       try {
         const msg = JSON.parse(event.data as string)
 
-        console.log("📦 Parsed WS Message:", msg)
-
         if (msg.type === "new_order") {
-          console.log("🆕 New kitchen order received")
 
           const order: KitchenOrder = {
             id: msg.order_id as string,
@@ -181,7 +179,6 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
         }
 
         if (msg.type === "order_updated") {
-          console.log("🔄 Order status updated")
 
           setOrders((prev) =>
             prev
@@ -203,11 +200,6 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
     }
 
     ws.onclose = (event) => {
-      console.log("🔌 WebSocket closed", {
-        code: event.code,
-        reason: event.reason,
-        wasClean: event.wasClean,
-      })
 
       if (!isMounted.current) return
 
@@ -243,6 +235,12 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
       const next = nextStatus[currentStatus]
       if (!next) return
 
+      // Keep the order so a failed request can put it back. When the next status is
+      // "served" the optimistic update removes the ticket from the board, and the old
+      // revert only mapped over what was left, so a failed "served" made the order
+      // vanish from the kitchen even though the server never recorded it.
+      const snapshot = ordersRef.current.find((o) => o.id === orderId)
+
       // Optimistic update
       setOrders((prev) =>
         prev
@@ -271,11 +269,12 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
       } catch {
         // Revert optimistic update on failure
-        setOrders((prev) =>
-          prev.map((o) =>
-            o.id === orderId ? { ...o, status: currentStatus } : o,
-          ),
-        )
+        setOrders((prev) => {
+          if (prev.some((o) => o.id === orderId)) {
+            return prev.map((o) => (o.id === orderId ? { ...o, status: currentStatus } : o))
+          }
+          return snapshot ? [{ ...snapshot, status: currentStatus }, ...prev] : prev
+        })
       }
     },
     [],

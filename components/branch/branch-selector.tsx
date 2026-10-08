@@ -83,7 +83,7 @@ export function BranchSelector({ currentBranchId, onSelect }: BranchSelectorProp
                   )}
                 </div>
                 {branch.ID === currentBranchId && (
-                  <Check className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                  <Check className="w-3.5 h-3.5 text-brand-light shrink-0" />
                 )}
               </button>
             ))}

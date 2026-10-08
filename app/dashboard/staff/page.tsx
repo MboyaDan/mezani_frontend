@@ -23,8 +23,8 @@ const roleConfig: Record<string, { color: string; bg: string; icon: any }> = {
   owner:   { color: "text-zinc-700",    bg: "bg-zinc-100",    icon: Users },
   manager: { color: "text-blue-700",    bg: "bg-blue-100",    icon: Shield },
   waiter:  { color: "text-emerald-700", bg: "bg-emerald-100", icon: Coffee },
-  kitchen: { color: "text-orange-700",  bg: "bg-orange-100",  icon: ChefHat },
-  cashier: { color: "text-violet-700",  bg: "bg-violet-100",  icon: Users },
+  kitchen: { color: "text-brand-ink",  bg: "bg-brand/10",  icon: ChefHat },
+  cashier: { color: "text-brand-ink",  bg: "bg-brand/10",  icon: Users },
 }
 
 interface StaffMember {
@@ -69,7 +69,7 @@ function getPasswordStrength(password: string): StrengthResult {
   const levels: Record<number, Omit<StrengthResult, "score" | "tips">> = {
     0: { label: "",          color: "text-zinc-400",    barColor: "bg-zinc-200"    },
     1: { label: "Too short", color: "text-red-500",     barColor: "bg-red-400"     },
-    2: { label: "Weak",      color: "text-orange-500",  barColor: "bg-orange-400"  },
+    2: { label: "Weak",      color: "text-brand-ink",  barColor: "bg-brand-light"  },
     3: { label: "Good",      color: "text-yellow-600",  barColor: "bg-yellow-400"  },
     4: { label: "Strong",    color: "text-emerald-600", barColor: "bg-emerald-500" },
   }
@@ -170,6 +170,7 @@ export default function StaffPage() {
   const [showDialog, setShowDialog] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [confirmMember, setConfirmMember] = useState<{ ID: string; Name: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [success, setSuccess] = useState<string | null>(null)
@@ -274,6 +275,7 @@ export default function StaffPage() {
       setError(err.response?.data?.error ?? "Failed to delete staff member")
     } finally {
       setDeleteId(null)
+      setConfirmMember(null)
     }
   }
 
@@ -285,7 +287,7 @@ export default function StaffPage() {
   if (!branchId) return <BranchRequired />
 
   return (
-    <div className="flex flex-col flex-1 bg-[#F8FAFC]">
+    <div className="flex flex-col flex-1 bg-cream">
       <Topbar title="Staff" />
       <div className="p-6 space-y-5">
 
@@ -297,7 +299,7 @@ export default function StaffPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={fetchStaff}
-              className="p-2.5 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors"
+              className="p-2.5 rounded-xl bg-white border border-cream-border hover:bg-zinc-50 transition-colors"
             >
               <RefreshCw className="w-4 h-4 text-zinc-500" />
             </button>
@@ -305,7 +307,7 @@ export default function StaffPage() {
             {isOwner && (
               <Button
                 onClick={handleOpenDialog}
-                className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 shadow-sm shadow-orange-200"
+                className="bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl gap-2 shadow-sm shadow-charcoal/10"
               >
                 <Plus className="w-4 h-4" />
                 Add Staff
@@ -359,12 +361,12 @@ export default function StaffPage() {
               return (
                 <Card
                   key={member.ID}
-                  className="bg-white rounded-2xl border border-zinc-200 shadow-sm hover:shadow-md transition-all"
+                  className="bg-white rounded-2xl border border-cream-border shadow-sm hover:shadow-md transition-all"
                 >
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-[#0f172a] text-white text-sm font-bold flex items-center justify-center shrink-0">
+                        <div className="w-11 h-11 rounded-2xl bg-charcoal text-white text-sm font-bold flex items-center justify-center shrink-0">
                           {initials}
                         </div>
                         <div>
@@ -375,9 +377,10 @@ export default function StaffPage() {
                       {/* ✅ Only owners see the delete button */}
                       {isOwner && (
                         <button
-                          onClick={() => handleDelete(member.ID)}
+                          onClick={() => setConfirmMember({ ID: member.ID, Name: member.Name })}
                           disabled={deleteId === member.ID}
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                          aria-label={`Remove ${member.Name}`}
+                          className="flex size-10 items-center justify-center rounded-lg hover:bg-red-50 text-zinc-400 hover:text-red-600 transition-colors disabled:opacity-50"
                         >
                           {deleteId === member.ID
                             ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -464,7 +467,7 @@ export default function StaffPage() {
                   <select
                     value={form.role}
                     onChange={(e) => handleChange("role", e.target.value)}
-                    className="w-full border border-zinc-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-300"
+                    className="w-full border border-cream-border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/25"
                   >
                     {["manager", "waiter", "kitchen", "cashier"].map((r) => (
                       <option key={r} value={r}>{r}</option>
@@ -477,8 +480,8 @@ export default function StaffPage() {
                     value={form.branch_id}
                     onChange={(e) => handleChange("branch_id", e.target.value)}
                     className={cn(
-                      "w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-300",
-                      fieldErrors.branch_id ? "border-red-400" : "border-zinc-200"
+                      "w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/25",
+                      fieldErrors.branch_id ? "border-red-400" : "border-cream-border"
                     )}
                   >
                     {branches.map((b) => (
@@ -511,7 +514,7 @@ export default function StaffPage() {
                   Cancel
                 </Button>
                 <Button
-                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
+                  className="flex-1 bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl"
                   onClick={handleAdd}
                   disabled={actionLoading}
                 >
@@ -521,7 +524,31 @@ export default function StaffPage() {
             </div>
           </DialogContent>
         </Dialog>
+
       )}
+      {/* Remove-staff confirmation: this deletes the account, so it must not be one tap. */}
+      <Dialog open={confirmMember !== null} onOpenChange={(o) => !o && setConfirmMember(null)}>
+        <DialogContent className="rounded-2xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove {confirmMember?.Name}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm leading-relaxed text-charcoal/65">
+            Their account is deleted and they won&apos;t be able to sign in again. This can&apos;t be undone.
+          </p>
+          <div className="flex gap-3 mt-2">
+            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setConfirmMember(null)} disabled={deleteId !== null}>
+              Keep
+            </Button>
+            <Button
+              className="flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700"
+              onClick={() => confirmMember && handleDelete(confirmMember.ID)}
+              disabled={deleteId !== null}
+            >
+              {deleteId !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : "Remove"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

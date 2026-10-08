@@ -126,7 +126,7 @@ export default function AIPage() {
   const isEmpty = messages.length === 0
 
   return (
-    <div className="flex flex-col flex-1 bg-[#F8FAFC] h-screen">
+    <div className="flex flex-col flex-1 bg-cream h-screen">
       <Topbar title="AI Assistant" />
 
       <div className="flex flex-col flex-1 max-w-3xl w-full mx-auto px-4 overflow-hidden">
@@ -134,8 +134,8 @@ export default function AIPage() {
         {/* Header */}
         <div className="flex items-center justify-between py-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-violet-600" />
+            <div className="w-8 h-8 rounded-xl bg-brand/10 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-brand-ink" />
             </div>
             <div>
               <p className="text-sm font-semibold text-zinc-900">MezzaniAI</p>
@@ -159,8 +159,8 @@ export default function AIPage() {
           {isEmpty && (
             <div className="flex flex-col items-center justify-center h-full gap-6 py-12">
               <div className="text-center space-y-1">
-                <div className="w-14 h-14 rounded-2xl bg-violet-100 flex items-center justify-center mx-auto mb-3">
-                  <Sparkles className="w-7 h-7 text-violet-500" />
+                <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mx-auto mb-3">
+                  <Sparkles className="w-7 h-7 text-brand-ink" />
                 </div>
                 <p className="text-base font-semibold text-zinc-900">
                   Ask MezzaniAI anything about your restaurant
@@ -176,7 +176,7 @@ export default function AIPage() {
                     key={s}
                     onClick={() => sendMessage(s)}
                     disabled={!branchId}
-                    className="text-left px-4 py-3 bg-white border border-zinc-200 rounded-xl text-sm text-zinc-700 hover:border-violet-300 hover:bg-violet-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-zinc-200 disabled:hover:bg-white"
+                    className="text-left px-4 py-3 bg-white border border-cream-border rounded-xl text-sm text-zinc-700 hover:border-brand/40 hover:bg-brand/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-cream-border disabled:hover:bg-white"
                   >
                     {s}
                   </button>
@@ -200,16 +200,16 @@ export default function AIPage() {
               )}
             >
               {msg.role === "assistant" && (
-                <div className="w-7 h-7 rounded-xl bg-violet-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <Sparkles className="w-3.5 h-3.5 text-violet-600" />
+                <div className="w-7 h-7 rounded-xl bg-brand/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Sparkles className="w-3.5 h-3.5 text-brand-ink" />
                 </div>
               )}
 
               <div className={cn(
                 "max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
                 msg.role === "user"
-                  ? "bg-[#0f172a] text-white rounded-tr-sm"
-                  : "bg-white border border-zinc-200 text-zinc-800 rounded-tl-sm shadow-sm"
+                  ? "bg-charcoal text-white rounded-tr-sm"
+                  : "bg-white border border-cream-border text-zinc-800 rounded-tl-sm shadow-sm"
               )}>
                 {msg.loading ? (
                   <div className="flex items-center gap-2 text-zinc-400">
@@ -236,7 +236,7 @@ export default function AIPage() {
               </div>
 
               {msg.role === "user" && (
-                <div className="w-7 h-7 rounded-xl bg-[#0f172a] flex items-center justify-center shrink-0 mt-0.5 text-white text-xs font-bold">
+                <div className="w-7 h-7 rounded-xl bg-charcoal flex items-center justify-center shrink-0 mt-0.5 text-white text-xs font-bold">
                   {initials}
                 </div>
               )}
@@ -255,8 +255,8 @@ export default function AIPage() {
         </div>
 
         {/* Input */}
-        <div className="py-4 border-t border-zinc-200">
-          <div className="flex items-end gap-3 bg-white border border-zinc-200 rounded-2xl px-4 py-3 focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-100 transition-all">
+        <div className="py-4 border-t border-cream-border">
+          <div className="flex items-end gap-3 bg-white border border-cream-border rounded-2xl px-4 py-3 focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/15 transition-all">
             <textarea
               ref={inputRef}
               value={input}
@@ -271,7 +271,7 @@ export default function AIPage() {
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || loading || !branchId}
-              className="w-8 h-8 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center transition-colors shrink-0"
+              className="w-8 h-8 rounded-xl bg-charcoal hover:bg-charcoal/90 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center transition-colors shrink-0"
             >
               {loading
                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" />

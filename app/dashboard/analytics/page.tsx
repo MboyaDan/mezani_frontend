@@ -84,16 +84,16 @@ export default function AnalyticsPage() {
         : "—",
       change: "Today",
       icon: TrendingUp,
-      color: "text-violet-600",
-      bg: "bg-violet-50",
+      color: "text-brand-ink",
+      bg: "bg-brand/10",
     },
     {
       title: "Popular Items",
       value: popularItems.length > 0 ? String(popularItems.length) : "—",
       change: "Tracked",
       icon: ShoppingBag,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
+      color: "text-charcoal",
+      bg: "bg-charcoal/5",
     },
     {
       title: "Returning Customers",
@@ -112,14 +112,14 @@ export default function AnalyticsPage() {
         ? `${popularItems[0].total_orders} orders`
         : "No data",
       icon: Star,
-      color: "text-orange-600",
-      bg: "bg-orange-50",
+      color: "text-brand-ink",
+      bg: "bg-brand/10",
     },
   ]
   if(!branchId) return <BranchRequired />
 
   return (
-    <div className="flex flex-col flex-1 bg-[#F8FAFC]">
+    <div className="flex flex-col flex-1 bg-cream">
       <Topbar title="Analytics" />
       <div className="p-6 space-y-5">
 
@@ -128,7 +128,7 @@ export default function AnalyticsPage() {
           <p className="text-sm text-zinc-500">Live data from your restaurant</p>
           <button
             onClick={fetchAnalytics}
-            className="p-2.5 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors"
+            className="p-2.5 rounded-xl bg-white border border-cream-border hover:bg-zinc-50 transition-colors"
           >
             <RefreshCw className="w-4 h-4 text-zinc-500" />
           </button>
@@ -158,7 +158,7 @@ export default function AnalyticsPage() {
                 return (
                   <Card
                     key={stat.title}
-                    className="bg-white rounded-2xl border border-zinc-200 shadow-sm hover:shadow-md transition-all hover:scale-[1.01]"
+                    className="bg-white rounded-2xl border border-cream-border shadow-sm hover:shadow-md transition-all hover:scale-[1.01]"
                   >
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between">
@@ -185,7 +185,7 @@ export default function AnalyticsPage() {
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Peak Hours */}
-              <Card className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
+              <Card className="bg-white rounded-2xl border border-cream-border shadow-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base font-semibold">Orders by Hour</CardTitle>
                 </CardHeader>
@@ -221,7 +221,7 @@ export default function AnalyticsPage() {
               </Card>
 
               {/* Customer Insights */}
-              <Card className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
+              <Card className="bg-white rounded-2xl border border-cream-border shadow-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base font-semibold">Customer Insights</CardTitle>
                 </CardHeader>
@@ -252,7 +252,7 @@ export default function AnalyticsPage() {
 
             {/* Top Dishes */}
             {popularItems.length > 0 && (
-              <Card className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
+              <Card className="bg-white rounded-2xl border border-cream-border shadow-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base font-semibold">Top Dishes</CardTitle>
                 </CardHeader>
@@ -267,7 +267,7 @@ export default function AnalyticsPage() {
                         </div>
                         <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-orange-500 rounded-full transition-all"
+                            className="h-full bg-brand rounded-full transition-all"
                             style={{ width: `${(Number(dish.total_orders) / Number(maxOrders)) * 100}%` }}
                           />
                         </div>

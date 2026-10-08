@@ -10,18 +10,14 @@ import { paymentsAPI, Payment } from "@/lib/api/payments"
 import { useBranch } from "@/hooks/useBranch"
 import { useBranchWebSocket } from "@/hooks/useBranchWebSocket"
 import { useUser } from "@/hooks/useUser"
+import { ORDER_STATUS } from "@/lib/order-status"
 import { formatDistanceToNow } from "date-fns"
 import { BranchRequired } from "@/components/ui/branch-required"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-const statusStyles: Record<string, string> = {
-  pending: "bg-orange-100 text-orange-700 border-orange-200",
-  accepted: "bg-blue-100 text-blue-700 border-blue-200",
-  preparing: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  ready: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  served: "bg-zinc-100 text-zinc-600 border-zinc-200",
-  closed: "bg-zinc-100 text-zinc-400 border-zinc-200",
-}
+const statusStyles: Record<string, string> = Object.fromEntries(
+  Object.entries(ORDER_STATUS).map(([k, v]) => [k, v.chip])
+)
 
 const statusOrder = ["pending", "accepted", "preparing", "ready", "served", "closed"]
 
@@ -48,6 +44,7 @@ interface OrderItem {
 }
 
 interface Order {
+  note?: string
   id: string
   table_session_id: string
   table_number: number
@@ -256,7 +253,7 @@ useEffect(() => {
     })
 
   return (
-    <div className="flex flex-col flex-1 bg-[#F8FAFC]">
+    <div className="flex flex-col flex-1 bg-cream">
       <Topbar title="Orders" />
       <div className="p-6 space-y-5">
 
@@ -268,18 +265,18 @@ useEffect(() => {
               placeholder="Search by table number..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-white border-zinc-200 rounded-xl"
+              className="pl-9 bg-white border-cream-border rounded-xl"
             />
           </div>
           <button
             onClick={fetchOrders}
-            className="p-2.5 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors"
+            className="p-2.5 rounded-xl bg-white border border-cream-border hover:bg-zinc-50 transition-colors"
             title="Refresh"
           >
             <RefreshCw className="w-4 h-4 text-zinc-500" />
           </button>
           {newCount > 0 && (
-            <div className="flex items-center gap-2 bg-orange-500 text-white text-sm font-semibold px-4 py-2 rounded-xl animate-pulse">
+            <div className="flex items-center gap-2 bg-brand-ink text-white text-sm font-semibold px-4 py-2 rounded-xl animate-pulse">
               🔔 {newCount} new {newCount === 1 ? "order" : "orders"}
             </div>
           )}
@@ -294,8 +291,8 @@ useEffect(() => {
               className={cn(
                 "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all capitalize",
                 filterStatus === s
-                  ? "bg-[#0f172a] text-white"
-                  : "bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                  ? "bg-charcoal text-white"
+                  : "bg-white border border-cream-border text-zinc-600 hover:bg-zinc-50"
               )}
             >
               {s === "all" ? "All Orders" : s}
@@ -320,11 +317,11 @@ useEffect(() => {
                 return (
                   <div
                     key={bill.tableSessionId}
-                    className="bg-white rounded-2xl border border-zinc-200 p-4 flex items-center justify-between gap-3"
+                    className="bg-white rounded-2xl border border-cream-border p-4 flex items-center justify-between gap-3"
                   >
                     <div>
                       <p className="text-sm font-bold text-zinc-900">Table {bill.tableNumber}</p>
-                      <p className="text-lg font-bold text-orange-500">
+                      <p className="text-lg font-bold text-brand-ink">
                         KES {bill.total.toLocaleString()}
                       </p>
                     </div>
@@ -404,14 +401,14 @@ useEffect(() => {
                 className={cn(
                   "bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all",
                   order.status === "pending"
-                    ? "border-orange-200 ring-1 ring-orange-100"
-                    : "border-zinc-200"
+                    ? "border-brand/30 ring-1 ring-brand/25"
+                    : "border-cream-border"
                 )}
               >
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-4 flex-1">
-                      <div className="w-12 h-12 rounded-2xl bg-[#0f172a] text-white text-base font-bold flex items-center justify-center shrink-0">
+                      <div className="w-12 h-12 rounded-2xl bg-charcoal text-white text-base font-bold flex items-center justify-center shrink-0">
                         {order.table_number}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -434,6 +431,11 @@ useEffect(() => {
                               </span>
                             </div>
                           ))}
+                          {order.note && (
+                            <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-900">
+                              Guest note: {order.note}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -443,7 +445,7 @@ useEffect(() => {
                         KES {order.total.toLocaleString()}
                       </p>
                       <span className={cn(
-                        "text-xs px-2.5 py-1 rounded-full border font-medium capitalize",
+                        "text-xs px-2.5 py-1 rounded-full font-medium capitalize",
                         statusStyles[order.status]
                       )}>
                         {order.status}
@@ -455,7 +457,7 @@ useEffect(() => {
                           className={cn(
                             "text-xs font-semibold px-4 py-2 rounded-xl transition-all active:scale-95 whitespace-nowrap disabled:opacity-50",
                             order.status === "pending"
-                              ? "bg-orange-500 hover:bg-orange-600 text-white shadow-sm shadow-orange-100"
+                              ? "bg-charcoal hover:bg-charcoal/90 text-cream shadow-sm shadow-charcoal/10"
                               : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
                           )}
                         >
@@ -488,7 +490,7 @@ useEffect(() => {
               actually in hand. The amount charged is the full outstanding
               balance for this table, calculated by the server.
             </p>
-            <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3">
+            <div className="bg-zinc-50 border border-cream-border rounded-xl px-4 py-3">
               <p className="text-xs font-medium text-zinc-500">Amount Due</p>
               <p className="text-2xl font-bold text-zinc-900">
                 KES {payingSession?.total.toLocaleString()}
@@ -500,7 +502,7 @@ useEffect(() => {
             <button
               onClick={submitCashPayment}
               disabled={payLoading}
-              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+              className="w-full bg-brand hover:bg-brand disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
             >
               {payLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Record Cash Payment"}
             </button>
