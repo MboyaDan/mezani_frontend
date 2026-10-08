@@ -178,7 +178,7 @@ export default function InventoryPage() {
   }
 if (!branchId) return <BranchRequired/>
   return (
-    <div className="flex flex-col flex-1 bg-[#F8FAFC]">
+    <div className="flex flex-col flex-1 bg-cream">
       <Topbar title="Inventory" />
       <div className="p-6 space-y-5">
 
@@ -190,19 +190,19 @@ if (!branchId) return <BranchRequired/>
               placeholder="Search inventory..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-white border-zinc-200 rounded-xl"
+              className="pl-9 bg-white border-cream-border rounded-xl"
             />
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={fetchInventory}
-              className="p-2.5 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors"
+              className="p-2.5 rounded-xl bg-white border border-cream-border hover:bg-zinc-50 transition-colors"
             >
               <RefreshCw className="w-4 h-4 text-zinc-500" />
             </button>
             <Button
               onClick={() => setShowDialog(true)}
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 shadow-sm shadow-orange-200"
+              className="bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl gap-2 shadow-sm shadow-charcoal/10"
             >
               <Plus className="w-4 h-4" />
               Add Item
@@ -236,13 +236,13 @@ if (!branchId) return <BranchRequired/>
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Total Items", value: items.length, icon: Package, color: "text-blue-600", bg: "bg-blue-50" },
+            { label: "Total Items", value: items.length, icon: Package, color: "text-charcoal", bg: "bg-charcoal/5" },
             { label: "Low Stock", value: lowStock.length, icon: TrendingDown, color: "text-amber-600", bg: "bg-amber-50" },
             { label: "Out of Stock", value: outOfStock.length, icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50" },
           ].map((stat) => {
             const Icon = stat.icon
             return (
-              <Card key={stat.label} className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
+              <Card key={stat.label} className="bg-white rounded-2xl border border-cream-border shadow-sm">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className={cn("p-2.5 rounded-xl", stat.bg)}>
                     <Icon className={cn("w-4 h-4", stat.color)} />
@@ -275,7 +275,7 @@ if (!branchId) return <BranchRequired/>
 
         {/* Table */}
         {!loading && filtered.length > 0 && (
-          <Card className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+          <Card className="bg-white rounded-2xl border border-cream-border shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -496,7 +496,7 @@ if (!branchId) return <BranchRequired/>
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
+                className="flex-1 bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl"
                 onClick={handleAdd}
                 disabled={actionLoading}
               >

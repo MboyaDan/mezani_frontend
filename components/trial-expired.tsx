@@ -25,7 +25,7 @@ export function TrialExpiredGuard({ children }: { children: React.ReactNode }) {
   if (!expired) return <>{children}</>
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-[#F8FAFC] p-6 min-h-screen">
+    <div className="flex flex-col flex-1 items-center justify-center bg-cream p-6 min-h-screen">
       <div className="w-full max-w-md text-center space-y-6">
         <div className="relative w-16 h-16 mx-auto">
           <div className="w-16 h-16 rounded-2xl bg-zinc-100 flex items-center justify-center">
@@ -43,7 +43,7 @@ export function TrialExpiredGuard({ children }: { children: React.ReactNode }) {
           </p>
         </div>
 
-        <div className="bg-white border border-zinc-200 rounded-2xl p-4 text-left space-y-2">
+        <div className="bg-white border border-cream-border rounded-2xl p-4 text-left space-y-2">
           <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">
             Your data is safe — renew to regain access to:
           </p>
@@ -64,7 +64,7 @@ export function TrialExpiredGuard({ children }: { children: React.ReactNode }) {
         <div className="space-y-3">
           <Link
             href="/billing/renew"
-            className="block w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-4 rounded-2xl transition-colors text-sm"
+            className="block w-full bg-charcoal hover:bg-charcoal/90 text-cream font-semibold py-4 rounded-2xl transition-colors text-sm"
           >
             View plans & renew →
           </Link>
@@ -82,7 +82,7 @@ export function TrialExpiredGuard({ children }: { children: React.ReactNode }) {
 
         <p className="text-xs text-zinc-400">
           Questions? Email us at{" "}
-          <a href="mailto:customercare@mezzani.co.ke" className="text-orange-500 hover:underline">
+          <a href="mailto:customercare@mezzani.co.ke" className="text-brand-ink hover:underline">
             customercare@mezzani.co.ke
           </a>
         </p>

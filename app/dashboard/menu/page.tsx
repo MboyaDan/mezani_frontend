@@ -372,7 +372,7 @@ export default function MenuPage() {
 
   if (!loading && !menuId) {
     return (
-      <div className="flex flex-col flex-1 bg-[#F8FAFC]">
+      <div className="flex flex-col flex-1 bg-cream">
         <Topbar title="Menu" />
         <div className="flex flex-col items-center justify-center flex-1 gap-4">
           <div className="text-center space-y-2">
@@ -382,7 +382,7 @@ export default function MenuPage() {
           <Button
             onClick={handleCreateMenu}
             disabled={actionLoading}
-            className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
+            className="bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl"
           >
             {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Menu"}
           </Button>
@@ -394,7 +394,7 @@ export default function MenuPage() {
   // ── Main render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col flex-1 bg-[#F8FAFC]">
+    <div className="flex flex-col flex-1 bg-cream">
       <Topbar title="Menu" />
       <div className="p-6 space-y-5">
 
@@ -406,13 +406,13 @@ export default function MenuPage() {
               placeholder="Search menu items..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-white border-zinc-200 rounded-xl"
+              className="pl-9 bg-white border-cream-border rounded-xl"
             />
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={fetchMenu}
-              className="p-2.5 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors"
+              className="p-2.5 rounded-xl bg-white border border-cream-border hover:bg-zinc-50 transition-colors"
             >
               <RefreshCw className="w-4 h-4 text-zinc-500" />
             </button>
@@ -423,7 +423,7 @@ export default function MenuPage() {
                 setCategoryDialogError(null)
                 setShowCategoryDialog(true)
               }}
-              className="rounded-xl border-zinc-200"
+              className="rounded-xl border-cream-border"
             >
               Add Category
             </Button>
@@ -435,7 +435,7 @@ export default function MenuPage() {
                 setForm({ name: "", description: "", categoryId: categories[0]?.category_id ?? "", price: "" })
                 setShowAddDialog(true)
               }}
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 shadow-sm shadow-orange-200"
+              className="bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl gap-2 shadow-sm shadow-charcoal/10"
             >
               <Plus className="w-4 h-4" />
               Add Item
@@ -460,8 +460,8 @@ export default function MenuPage() {
               className={cn(
                 "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
                 activeCategory === cat
-                  ? "bg-[#0f172a] text-white"
-                  : "bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                  ? "bg-charcoal text-white"
+                  : "bg-white border border-cream-border text-zinc-600 hover:bg-zinc-50"
               )}
             >
               {cat}
@@ -476,7 +476,7 @@ export default function MenuPage() {
             { label: "Available",   value: flatItems.filter((i) => i.available && !i.sold_out).length },
             { label: "Sold Out",    value: flatItems.filter((i) => i.sold_out).length },
           ].map((stat) => (
-            <Card key={`stat-${stat.label}`} className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
+            <Card key={`stat-${stat.label}`} className="bg-white rounded-2xl border border-cream-border shadow-sm">
               <CardContent className="p-4">
                 <p className="text-2xl font-bold text-zinc-900">{stat.value}</p>
                 <p className="text-sm text-zinc-500 mt-0.5">{stat.label}</p>
@@ -504,7 +504,7 @@ export default function MenuPage() {
 
         {/* Items table */}
         {!loading && filtered.length > 0 && (
-          <Card className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+          <Card className="bg-white rounded-2xl border border-cream-border shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -625,8 +625,8 @@ export default function MenuPage() {
                       if (itemFieldErrors.categoryId) setItemFieldErrors((p) => ({ ...p, categoryId: undefined }))
                     }}
                     className={cn(
-                      "w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-300",
-                      itemFieldErrors.categoryId ? "border-red-400" : "border-zinc-200"
+                      "w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/25",
+                      itemFieldErrors.categoryId ? "border-red-400" : "border-cream-border"
                     )}
                   >
                     <option value="">Select a category</option>
@@ -673,7 +673,7 @@ export default function MenuPage() {
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
+                className="flex-1 bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl"
                 onClick={handleSaveItem}
                 disabled={actionLoading}
               >
@@ -752,7 +752,7 @@ export default function MenuPage() {
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
+                className="flex-1 bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl"
                 onClick={handleAddCategory}
                 disabled={actionLoading}
               >

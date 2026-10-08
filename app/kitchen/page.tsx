@@ -1,69 +1,27 @@
 "use client"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { ChefHat, Clock, ArrowLeft, Wifi, WifiOff, AlertTriangle } from "lucide-react"
+import { ChefHat, ArrowLeft, Wifi, WifiOff, AlertTriangle, MessageSquareWarning } from "lucide-react"
 import Link from "next/link"
 import { useKitchenOrders, KitchenOrder } from "@/hooks/useKitchenOrders"
 import { useBranch } from "@/hooks/useBranch"
+import { Logo } from "@/components/brand/logo"
 
+// Built to be read from a metre or two away on a mounted tablet: large type, loud notes,
+// big tap targets. Status colours stay semantic (amber / sky / brand / green).
 const statusColumns: {
   key: string
   label: string
   accent: string
   strip: string
-  badgeBg: string
-  badgeText: string
-  actionText: string
-  actionHover: string
+  badge: string
+  action: string
 }[] = [
-  {
-    key: "pending",
-    label: "Incoming",
-    accent: "text-amber-600",
-    strip: "bg-amber-400",
-    badgeBg: "bg-amber-400",
-    badgeText: "text-amber-900",
-    actionText: "text-amber-700",
-    actionHover: "hover:bg-amber-50",
-  },
-  {
-    key: "accepted",
-    label: "Accepted",
-    accent: "text-sky-600",
-    strip: "bg-sky-400",
-    badgeBg: "bg-sky-500",
-    badgeText: "text-white",
-    actionText: "text-sky-700",
-    actionHover: "hover:bg-sky-50",
-  },
-  {
-    key: "preparing",
-    label: "On the Pass",
-    accent: "text-orange-600",
-    strip: "bg-orange-400",
-    badgeBg: "bg-orange-400",
-    badgeText: "text-orange-900",
-    actionText: "text-orange-700",
-    actionHover: "hover:bg-orange-50",
-  },
-  {
-    key: "ready",
-    label: "Ready",
-    accent: "text-emerald-600",
-    strip: "bg-emerald-400",
-    badgeBg: "bg-emerald-500",
-    badgeText: "text-white",
-    actionText: "text-emerald-700",
-    actionHover: "hover:bg-emerald-50",
-  },
+  { key: "pending",   label: "Incoming",    accent: "text-amber-800",   strip: "bg-amber-400",   badge: "bg-amber-400 text-charcoal",   action: "Accept" },
+  { key: "accepted",  label: "Accepted",    accent: "text-sky-800",     strip: "bg-sky-400",     badge: "bg-sky-500 text-white",        action: "Start prep" },
+  { key: "preparing", label: "On the pass", accent: "text-brand-ink",   strip: "bg-brand-light", badge: "bg-brand-light text-charcoal", action: "Mark ready" },
+  { key: "ready",     label: "Ready",       accent: "text-emerald-800", strip: "bg-emerald-500", badge: "bg-emerald-600 text-white",    action: "Served" },
 ]
-
-const actionLabel: Record<string, string> = {
-  pending: "Accept",
-  accepted: "Start Prep",
-  preparing: "Mark Ready",
-  ready: "Served",
-}
 
 function useElapsed(date: Date) {
   const [mins, setMins] = useState(0)
@@ -90,79 +48,77 @@ function TicketCard({
   const col = statusColumns.find((c) => c.key === order.status)
 
   return (
-    <div
+    <article
+      aria-label={`Table ${order.tableNumber}, ${col?.label ?? order.status}`}
       className={cn(
-        "relative bg-white border rounded-lg overflow-hidden transition-shadow duration-200 hover:shadow-md",
-        isNew ? "border-amber-300 shadow-amber-100 shadow-md" : "border-zinc-200",
-        isUrgent && "border-red-300"
+        "relative overflow-hidden rounded-xl border bg-white transition-shadow",
+        isNew ? "border-brand shadow-lg shadow-brand/20 ring-2 ring-brand/30" : "border-cream-border",
+        isUrgent && "border-red-400 ring-2 ring-red-200"
       )}
     >
-      {/* Left status strip */}
-      <div className={cn("absolute left-0 top-0 bottom-0 w-1", col?.strip ?? "bg-zinc-200")} />
+      <div className={cn("absolute inset-y-0 left-0 w-1.5", col?.strip ?? "bg-charcoal/20")} aria-hidden />
 
       {/* Header */}
-      <div className="pl-4 pr-3 pt-3 pb-2.5 flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] font-bold tracking-widest uppercase text-zinc-400 leading-none">
-            TBL
-          </span>
-          <span className="font-mono text-2xl font-black text-zinc-900 leading-none tabular-nums">
+      <div className="flex items-center justify-between gap-2 py-3 pr-4 pl-5">
+        <div className="flex items-baseline gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-charcoal/45">Table</span>
+          <span className="font-mono text-3xl font-black leading-none tabular-nums text-charcoal">
             {String(order.tableNumber).padStart(2, "0")}
           </span>
+          {isNew && (
+            <span className="ml-1 rounded bg-brand px-1.5 py-0.5 text-[0.6875rem] font-bold uppercase tracking-wide text-white">
+              New
+            </span>
+          )}
         </div>
-
-        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-          {isUrgent && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
-          <span
-            className={cn(
-              "font-mono text-xs tabular-nums font-semibold",
-              isUrgent ? "text-red-500" : "text-zinc-400"
-            )}
-          >
+        <div className="flex items-center gap-1.5">
+          {isUrgent && <AlertTriangle className="size-4 text-red-600" aria-label="Waiting too long" />}
+          <span className={cn("font-mono text-base font-bold tabular-nums", isUrgent ? "text-red-600" : "text-charcoal/50")}>
             {mins < 1 ? "now" : `${mins}m`}
           </span>
         </div>
       </div>
 
-      {/* Perforation line */}
-      <div className="ml-4 mr-3 border-t border-dashed border-zinc-200" />
+      <div className="mr-4 ml-5 border-t border-dashed border-cream-border" />
 
       {/* Items */}
-      <div className="pl-4 pr-3 py-2.5 space-y-1.5">
+      <ul className="space-y-2 py-3 pr-4 pl-5">
         {order.items.map((item, i) => (
-          <div key={i} className="flex items-baseline gap-2">
-            <span className="font-mono text-sm font-bold text-zinc-900 tabular-nums w-5 shrink-0">
-              {item.qty}×
-            </span>
-            <span className="text-sm text-zinc-700 leading-snug">{item.name}</span>
-          </div>
+          <li key={i} className="flex items-baseline gap-3">
+            <span className="w-8 shrink-0 font-mono text-lg font-bold tabular-nums text-charcoal">{item.qty}×</span>
+            <span className="text-lg font-medium leading-snug text-charcoal">{item.name}</span>
+          </li>
         ))}
-      </div>
+      </ul>
 
-      {/* Note */}
+      {/* Guest note: loud on purpose. This is where allergies and "no onions" land. */}
       {order.note && (
-        <div className="ml-4 mr-3 mb-2.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 leading-snug">
-          {order.note}
+        <div
+          role="note"
+          className="mr-4 mb-3 ml-5 rounded-lg border-2 border-amber-500 bg-amber-50 px-3 py-2.5"
+        >
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-amber-900">
+            <MessageSquareWarning className="size-4" aria-hidden />
+            Guest note
+          </p>
+          <p className="mt-1 text-base font-semibold leading-snug text-charcoal">{order.note}</p>
         </div>
       )}
 
       {/* Action */}
-      {order.status !== "served" && (
-        <>
-          <div className="ml-4 mr-3 border-t border-dashed border-zinc-200" />
-          <button
-            onClick={() => onAdvance(order.id, order.status)}
-            className={cn(
-              "w-full pl-4 pr-3 py-2.5 text-left text-xs font-bold uppercase tracking-wider transition-colors duration-150",
-              col?.actionText,
-              col?.actionHover
-            )}
-          >
-            {actionLabel[order.status]} →
-          </button>
-        </>
+      {order.status !== "served" && col && (
+        <button
+          onClick={() => onAdvance(order.id, order.status)}
+          className={cn(
+            "h-12 w-full border-t border-cream-border pl-5 text-left text-sm font-bold uppercase tracking-wider transition-colors",
+            "hover:bg-charcoal/5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand",
+            col.accent
+          )}
+        >
+          {col.action} →
+        </button>
       )}
-    </div>
+    </article>
   )
 }
 
@@ -180,76 +136,70 @@ function KitchenDisplay({ branchId }: { branchId: string }) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-zinc-50" suppressHydrationWarning>
-      {/* Header */}
-      <header className="h-12 bg-white border-b border-zinc-200 flex items-center justify-between px-5 sticky top-0 z-10">
-        <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-cream" suppressHydrationWarning>
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-cream-border bg-white px-4 sm:px-5">
+        <div className="flex min-w-0 items-center gap-3">
           <Link
             href="/dashboard"
-            className="p-1.5 -ml-1.5 rounded hover:bg-zinc-100 transition-colors"
+            aria-label="Back to dashboard"
+            className="-ml-2 flex size-11 items-center justify-center rounded-lg text-charcoal/60 transition-colors hover:bg-charcoal/5 focus-visible:outline-2 focus-visible:outline-brand"
           >
-            <ArrowLeft className="w-4 h-4 text-zinc-400" />
+            <ArrowLeft className="size-4" />
           </Link>
+          <Logo variant="mark" className="h-6" title="Mezzani" />
+          <h1 className="text-base font-semibold tracking-tight text-charcoal">Kitchen</h1>
 
-          <div className="flex items-center gap-2 border-r border-zinc-200 pr-3">
-            <ChefHat className="w-4 h-4 text-zinc-400" />
-            <span className="text-sm font-semibold text-zinc-800 tracking-tight">Kitchen</span>
-          </div>
-
-          <div
+          <span
             className={cn(
-              "flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium",
-              connected ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-500"
+              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold",
+              connected ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
             )}
           >
-            {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+            {connected ? <Wifi className="size-3.5" aria-hidden /> : <WifiOff className="size-3.5" aria-hidden />}
             {connected ? "Live" : "Offline"}
-          </div>
+          </span>
 
           {pendingCount > 0 && (
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-400 text-amber-900 rounded text-xs font-bold font-mono">
+            <span className="rounded-md bg-amber-400 px-2 py-1 font-mono text-xs font-bold text-charcoal" aria-live="polite">
               {pendingCount} incoming
-            </div>
+            </span>
           )}
         </div>
 
-        {timeStr && (
-          <span className="font-mono text-xs text-zinc-400 tabular-nums">{timeStr}</span>
-        )}
+        {timeStr && <span className="font-mono text-sm tabular-nums text-charcoal/50">{timeStr}</span>}
       </header>
 
-      {/* Empty state */}
+      {/* A kitchen that silently stops receiving orders is the worst failure mode here. */}
+      {!connected && (
+        <div role="alert" className="flex items-center justify-center gap-2 bg-red-600 px-4 py-2.5 text-sm font-semibold text-white">
+          <WifiOff className="size-4" aria-hidden />
+          Offline. New orders may not appear until the connection returns. Reconnecting…
+        </div>
+      )}
+
       {orders.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-48px)]">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-xl bg-zinc-100 flex items-center justify-center mx-auto">
-              <ChefHat className="w-6 h-6 text-zinc-300" />
+        <div className="flex h-[calc(100vh-56px)] flex-col items-center justify-center">
+          <div className="space-y-2 text-center">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-xl bg-charcoal/5">
+              <ChefHat className="size-7 text-charcoal/30" aria-hidden />
             </div>
-            <p className="text-sm text-zinc-400 font-medium">No active orders</p>
-            <p className="text-xs text-zinc-300">
-              {connected ? "Waiting for orders…" : "Reconnecting…"}
-            </p>
+            <p className="text-base font-medium text-charcoal/60">No active orders</p>
+            <p className="text-sm text-charcoal/40">{connected ? "Waiting for orders…" : "Reconnecting…"}</p>
           </div>
         </div>
       )}
 
-      {/* Board */}
-      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+      <div className="grid grid-cols-1 items-start gap-4 p-4 sm:grid-cols-2 xl:grid-cols-4">
         {statusColumns.map((col) => {
           const colOrders = orders.filter((o) => o.status === col.key)
           return (
-            <div key={col.key}>
-              {/* Column header */}
-              <div className="flex items-center justify-between mb-3 px-0.5">
-                <span className={cn("text-xs font-bold uppercase tracking-widest", col.accent)}>
-                  {col.label}
-                </span>
+            <section key={col.key} aria-label={col.label}>
+              <div className="mb-3 flex items-center justify-between px-0.5">
+                <h2 className={cn("text-sm font-bold uppercase tracking-widest", col.accent)}>{col.label}</h2>
                 <span
                   className={cn(
-                    "font-mono text-xs font-bold tabular-nums w-5 h-5 rounded-full flex items-center justify-center",
-                    colOrders.length > 0
-                      ? cn(col.badgeBg, col.badgeText)
-                      : "bg-zinc-100 text-zinc-400"
+                    "flex size-6 items-center justify-center rounded-full font-mono text-xs font-bold tabular-nums",
+                    colOrders.length > 0 ? col.badge : "bg-charcoal/8 text-charcoal/40"
                   )}
                 >
                   {colOrders.length}
@@ -257,10 +207,8 @@ function KitchenDisplay({ branchId }: { branchId: string }) {
               </div>
 
               {colOrders.length === 0 ? (
-                <div className="border border-dashed border-zinc-200 rounded-lg py-6 text-center">
-                  <p className="text-xs font-mono uppercase tracking-widest text-zinc-300">
-                    clear
-                  </p>
+                <div className="rounded-xl border border-dashed border-cream-border py-6 text-center">
+                  <p className="font-mono text-xs uppercase tracking-widest text-charcoal/30">clear</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -274,7 +222,7 @@ function KitchenDisplay({ branchId }: { branchId: string }) {
                   ))}
                 </div>
               )}
-            </div>
+            </section>
           )
         })}
       </div>
@@ -287,10 +235,8 @@ export default function KitchenPage() {
 
   if (!branchId) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-        <p className="text-xs font-mono text-zinc-400 uppercase tracking-widest">
-          Connecting…
-        </p>
+      <div className="flex min-h-screen items-center justify-center bg-cream">
+        <p className="font-mono text-xs uppercase tracking-widest text-charcoal/40">Connecting…</p>
       </div>
     )
   }

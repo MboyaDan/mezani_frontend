@@ -51,7 +51,7 @@ export default function BranchesPage() {
   }
 
   return (
-    <div className="flex flex-col flex-1 bg-[#F8FAFC]">
+    <div className="flex flex-col flex-1 bg-cream">
       <Topbar title="Branches" />
       <div className="p-6 space-y-5">
 
@@ -63,13 +63,13 @@ export default function BranchesPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={fetchBranches}
-              className="p-2.5 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors"
+              className="p-2.5 rounded-xl bg-white border border-cream-border hover:bg-zinc-50 transition-colors"
             >
               <RefreshCw className="w-4 h-4 text-zinc-500" />
             </button>
             <Button
               onClick={() => setShowDialog(true)}
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 shadow-sm shadow-orange-200"
+              className="bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl gap-2 shadow-sm shadow-charcoal/10"
             >
               <Plus className="w-4 h-4" />
               Add Branch
@@ -110,7 +110,7 @@ export default function BranchesPage() {
               { label: "Total Branches", value: branches.length },
               { label: "Active", value: branches.length },
             ].map((stat) => (
-              <Card key={stat.label} className="bg-white rounded-2xl border border-zinc-200 shadow-sm">
+              <Card key={stat.label} className="bg-white rounded-2xl border border-cream-border shadow-sm">
                 <CardContent className="p-4">
                   <p className="text-2xl font-bold text-zinc-900">{stat.value}</p>
                   <p className="text-sm text-zinc-500 mt-0.5">{stat.label}</p>
@@ -126,12 +126,12 @@ export default function BranchesPage() {
             {branches.map((branch) => (
               <Card
                 key={branch.ID}
-                className="bg-white rounded-2xl border border-zinc-200 shadow-sm hover:shadow-md transition-all hover:scale-[1.01]"
+                className="bg-white rounded-2xl border border-cream-border shadow-sm hover:shadow-md transition-all hover:scale-[1.01]"
               >
                 <CardContent className="p-5 space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#0f172a] text-white text-sm font-bold flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-charcoal text-white text-sm font-bold flex items-center justify-center">
                         {branch.Name.slice(0, 2).toUpperCase()}
                       </div>
                       <div>
@@ -159,7 +159,7 @@ export default function BranchesPage() {
                         localStorage.setItem("branch_id", branch.ID)
                         window.location.reload()
                       }}
-                      className="text-xs text-orange-500 font-medium hover:underline"
+                      className="text-xs text-brand-ink font-medium hover:underline"
                     >
                       Switch to →
                     </button>
@@ -206,7 +206,7 @@ export default function BranchesPage() {
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
+                className="flex-1 bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl"
                 onClick={handleAdd}
                 disabled={actionLoading}
               >

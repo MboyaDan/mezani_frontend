@@ -1,30 +1,53 @@
 "use client"
 import { useState, use, useEffect, useRef } from "react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { customerAPI, cartAPI, ordersAPI, menuAPI } from "@/lib/api"
 import { CustomerSession, MenuItem } from "@/types"
 import { FullMenuCategory, CartEntry } from "@/types/ui"
-import { ShoppingCart, Plus, Minus, X, ChevronRight, Loader2, AlertCircle, Clock } from "lucide-react"
+import {
+  ShoppingCart, Plus, Minus, X, ChevronRight, Loader2, AlertCircle, CheckCircle2, Star,
+} from "lucide-react"
 import { getErrorMessage } from "@/lib/api/error"
+import { Logo } from "@/components/brand/logo"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// "waiting" is the new state — table exists but no active session yet.
+// "waiting" = table exists but no active session yet.
 // The WaitingScreen polls until a session goes live, then auto-advances to "join".
 type PageState = "checking" | "waiting" | "join" | "menu" | "ordering" | "success" | "error" | "expired"
+
+interface PlacedOrder {
+  items: CartEntry[]
+  total: number
+}
+
+// ─── Shared building blocks ───────────────────────────────────────────────────
+
+/** Centered single-column layout for every screen before the menu. */
+function Screen({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-cream px-6 py-10">
+      <div className="w-full max-w-sm">{children}</div>
+    </main>
+  )
+}
+
+// 16px inputs: anything smaller makes iOS Safari zoom the page when a field is focused.
+const fieldClass =
+  "w-full rounded-xl border border-cream-border bg-white px-4 py-3 text-base text-charcoal outline-none transition-colors " +
+  "placeholder:text-charcoal/40 focus:border-brand focus:ring-2 focus:ring-brand/25"
+
+const primaryBtn =
+  "flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-charcoal text-base font-medium text-cream transition-colors " +
+  "hover:bg-charcoal/90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
 
 // ─── WaitingScreen ────────────────────────────────────────────────────────────
 
 /**
- * Shown when a customer scans a QR code but no session is active yet.
- *
- * Polls the session-check endpoint every POLL_INTERVAL_MS.
- * The moment a session becomes active, onSessionActive() is called
- * and the page transitions to the join screen — no manual refresh needed.
- *
- * This is the correct UX for the intended flow:
- *   Owner prints QR codes → laminates on tables → activates session when
- *   guests sit down → customer's waiting screen auto-proceeds to ordering.
+ * Shown when a guest scans a QR code but no session is active yet.
+ * Polls the session-check endpoint every POLL_INTERVAL_MS and advances the
+ * moment a session goes live, so nobody has to refresh.
  */
 const POLL_INTERVAL_MS = 4000
 
@@ -35,18 +58,8 @@ function WaitingScreen({
   tableId: string
   onSessionActive: (sessionId: string, tableNumber: number) => void
 }) {
-  const [dots, setDots] = useState(".")
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Animated ellipsis so the screen feels alive, not frozen
-  useEffect(() => {
-    const id = setInterval(() => {
-      setDots((d) => (d.length >= 3 ? "." : d + "."))
-    }, 600)
-    return () => clearInterval(id)
-  }, [])
-
-  // Poll for active session
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -56,11 +69,10 @@ function WaitingScreen({
           onSessionActive(data.session_id, data.table_number || 0)
         }
       } catch {
-        // Session not active yet — keep polling silently
+        // Session not active yet. Keep polling silently.
       }
     }
 
-    // Check immediately on mount, then on interval
     checkSession()
     intervalRef.current = setInterval(checkSession, POLL_INTERVAL_MS)
     return () => {
@@ -69,68 +81,62 @@ function WaitingScreen({
   }, [tableId, onSessionActive])
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm text-center space-y-6">
-        {/* Icon */}
-        <div className="relative w-20 h-20 mx-auto">
-          <div className="w-20 h-20 rounded-full bg-orange-50 border-2 border-orange-100 flex items-center justify-center">
-            <Clock className="w-9 h-9 text-orange-400" />
-          </div>
-          {/* Pulse ring to signal active polling */}
-          <span className="absolute inset-0 rounded-full border-2 border-orange-300 animate-ping opacity-30" />
+    <Screen>
+      <div className="space-y-8 text-center">
+        <div className="relative mx-auto flex size-20 items-center justify-center rounded-full bg-white ring-1 ring-cream-border">
+          <span
+            className="absolute inset-0 rounded-full border-2 border-brand/40 opacity-40 motion-safe:animate-ping"
+            aria-hidden
+          />
+          <Logo variant="mark" className="h-7" title="Mezzani" />
         </div>
 
-        {/* Copy */}
-        <div className="space-y-2">
-          <h2 className="text-xl font-bold text-zinc-900">Table not active yet</h2>
-          <p className="text-sm text-zinc-500 leading-relaxed">
-            Your waiter will activate this table shortly.
-            <br />
-            This page will update automatically{dots}
+        <div className="space-y-2" role="status" aria-live="polite">
+          <h1 className="text-2xl font-semibold tracking-tight text-charcoal">Your table isn&apos;t open yet</h1>
+          <p className="text-[0.9375rem] leading-relaxed text-charcoal/65">
+            Your waiter will open it shortly. This page updates by itself, so there&apos;s no need to refresh.
           </p>
         </div>
 
-        {/* Reassurance card */}
-        <div className="bg-white border border-zinc-200 rounded-2xl px-5 py-4 text-left space-y-2 shadow-sm">
-          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">What happens next</p>
+        <ol className="space-y-3.5 rounded-2xl border border-cream-border bg-white p-5 text-left">
           {[
-            "Staff activate your table",
-            "This screen opens the menu automatically",
+            "Staff open your table",
+            "This screen moves on to the menu",
             "You enter your name and start ordering",
           ].map((step, i) => (
-            <div key={step} className="flex items-start gap-3">
-              <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+            <li key={step} className="flex items-start gap-3">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand/12 text-xs font-semibold text-brand-ink">
                 {i + 1}
               </span>
-              <p className="text-sm text-zinc-600">{step}</p>
-            </div>
+              <span className="pt-0.5 text-sm text-charcoal/75">{step}</span>
+            </li>
           ))}
-        </div>
+        </ol>
 
-        {/* Subtle polling indicator */}
-        <p className="text-xs text-zinc-400 flex items-center justify-center gap-1.5">
-          <Loader2 className="w-3 h-3 animate-spin" />
+        <p className="flex items-center justify-center gap-2 text-xs text-charcoal/45">
+          <Loader2 className="size-3 motion-safe:animate-spin" aria-hidden />
           Checking every few seconds
         </p>
       </div>
-    </div>
+    </Screen>
   )
 }
 
-// ─── CheckingScreen ───────────────────────────────────────────────────────────
+// ─── CheckingScreen / LoadingScreen ───────────────────────────────────────────
 
-// Shown for the brief moment on first load while we check session status.
-// Distinct from LoadingScreen (which is shown while fetching the menu after join).
-function CheckingScreen() {
+function Spinner({ label }: { label: string }) {
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
-      <div className="text-center space-y-3">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
-        <p className="text-sm text-zinc-400">Checking table status…</p>
+    <main className="flex min-h-dvh items-center justify-center bg-cream">
+      <div className="space-y-4 text-center" role="status">
+        <Logo variant="mark" className="mx-auto h-8 motion-safe:animate-pulse" title="Mezzani" />
+        <p className="text-sm text-charcoal/55">{label}</p>
       </div>
-    </div>
+    </main>
   )
 }
+
+const CheckingScreen = () => <Spinner label="Checking your table…" />
+const LoadingScreen = () => <Spinner label="Loading the menu…" />
 
 // ─── JoinScreen ───────────────────────────────────────────────────────────────
 
@@ -146,77 +152,120 @@ function JoinScreen({
   error: string | null
 }) {
   const [name, setName] = useState("")
+  const submit = () => name.trim() && !loading && onJoin(name.trim())
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center space-y-1">
-          <div className="w-14 h-14 rounded-2xl bg-[#0f172a] text-white text-2xl font-bold flex items-center justify-center mx-auto mb-4">
-            M
+    <Screen>
+      <div className="space-y-8">
+        <div className="space-y-5 text-center">
+          <Logo variant="horizontal" className="mx-auto h-8" />
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-semibold tracking-tight text-charcoal">
+              {tableNumber ? `Welcome to Table ${tableNumber}` : "Welcome"}
+            </h1>
+            <p className="text-[0.9375rem] text-charcoal/65">Tell us your name and the menu opens.</p>
           </div>
-          <h1 className="text-2xl font-bold text-zinc-900">Welcome</h1>
-          <p className="text-sm text-zinc-500">Enter your name to start ordering</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-5 space-y-4">
+        <form
+          onSubmit={(e) => { e.preventDefault(); submit() }}
+          className="space-y-4"
+          noValidate
+        >
           <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-700">Your name</label>
+            <label htmlFor="guest-name" className="text-sm font-medium text-charcoal">Your name</label>
             <input
+              id="guest-name"
               type="text"
+              inputMode="text"
+              autoComplete="given-name"
+              autoCapitalize="words"
+              enterKeyHint="go"
               placeholder="e.g. John"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && name.trim() && onJoin(name.trim())}
-              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300"
+              className={fieldClass}
               autoFocus
             />
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-              <p className="text-xs text-red-600">{error}</p>
+            <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3">
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-600" aria-hidden />
+              <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
 
-          <button
-            onClick={() => name.trim() && onJoin(name.trim())}
-            disabled={!name.trim() || loading}
-            className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "View Menu"}
+          <button type="submit" disabled={!name.trim() || loading} className={primaryBtn}>
+            {loading ? <Loader2 className="size-4 animate-spin" aria-label="Opening menu" /> : "View menu"}
           </button>
-        </div>
+        </form>
 
-        <p className="text-center text-xs text-zinc-400">
-          Table {tableNumber ?? "Loading..."} · No app download needed
+        <p className="text-center text-xs leading-relaxed text-charcoal/50">
+          No app to download, no account to create.
+          <br />
+          By continuing you agree to our{" "}
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-charcoal">
+            Privacy Policy
+          </Link>
+          .
         </p>
       </div>
-    </div>
+    </Screen>
   )
 }
 
 // ─── SuccessScreen ────────────────────────────────────────────────────────────
 
-function SuccessScreen({ onOrderMore }: { onOrderMore: () => void }) {
+function SuccessScreen({
+  order,
+  tableNumber,
+  onOrderMore,
+}: {
+  order: PlacedOrder | null
+  tableNumber: number | null
+  onOrderMore: () => void
+}) {
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm text-center space-y-4">
-        <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
-          <span className="text-3xl">✅</span>
+    <Screen>
+      <div className="space-y-6">
+        <div className="space-y-3 text-center" role="status">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100">
+            <CheckCircle2 className="size-7 text-emerald-700" aria-hidden />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-charcoal">Order placed</h1>
+          <p className="text-[0.9375rem] leading-relaxed text-charcoal/65">
+            The kitchen has it{tableNumber ? ` for Table ${tableNumber}` : ""}. Your waiter will bring it to you.
+          </p>
         </div>
-        <h2 className="text-xl font-bold text-zinc-900">Order placed!</h2>
-        <p className="text-sm text-zinc-500">
-          Your order has been sent to the kitchen. We&apos;ll bring it to your table shortly.
+
+        {order && order.items.length > 0 && (
+          <div className="rounded-2xl border border-cream-border bg-white p-5">
+            <ul className="space-y-2.5">
+              {order.items.map((i) => (
+                <li key={i.id} className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="text-charcoal/80">
+                    <span className="mr-2 tabular-nums text-charcoal/45">{i.qty}×</span>
+                    {i.name}
+                  </span>
+                  <span className="tabular-nums text-charcoal/60">KES {(i.price * i.qty).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 flex items-center justify-between border-t border-cream-border pt-4">
+              <span className="text-sm font-medium text-charcoal">Total</span>
+              <span className="text-lg font-semibold tabular-nums text-charcoal">KES {order.total.toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+
+        <p className="text-center text-sm text-charcoal/55">
+          When you&apos;re ready to pay, ask your waiter or visit the cashier.
         </p>
-        <button
-          onClick={onOrderMore}
-          className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3.5 rounded-xl transition-all"
-        >
-          Order More
-        </button>
+
+        <button onClick={onOrderMore} className={primaryBtn}>Order more</button>
       </div>
-    </div>
+    </Screen>
   )
 }
 
@@ -224,89 +273,16 @@ function SuccessScreen({ onOrderMore }: { onOrderMore: () => void }) {
 
 function ErrorScreen({ message }: { message: string }) {
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm text-center space-y-4">
-        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto">
-          <AlertCircle className="w-8 h-8 text-red-500" />
+    <Screen>
+      <div className="space-y-4 text-center" role="alert">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-red-100">
+          <AlertCircle className="size-7 text-red-600" aria-hidden />
         </div>
-        <h2 className="text-xl font-bold text-zinc-900">Something went wrong</h2>
-        <p className="text-sm text-zinc-500">{message}</p>
-        <p className="text-xs text-zinc-400">Ask your waiter for assistance.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-charcoal">Something went wrong</h1>
+        <p className="text-[0.9375rem] text-charcoal/65">{message}</p>
+        <p className="text-sm text-charcoal/45">Please ask your waiter for help.</p>
       </div>
-    </div>
-  )
-}
-
-// ─── LoadingScreen ────────────────────────────────────────────────────────────
-
-function LoadingScreen() {
-  return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
-      <div className="text-center space-y-3">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
-        <p className="text-sm text-zinc-400">Loading menu...</p>
-      </div>
-    </div>
-  )
-}
-
-// ─── PhoneInput ───────────────────────────────────────────────────────────────
-
-function PhoneInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [error, setError] = useState<string>("")
-
-  const validatePhone = (phone: string) => {
-    const cleaned = phone.replace(/\s/g, "")
-    const phoneRegex = /^(07|01)\d{8}$/
-    if (phone && !phoneRegex.test(cleaned)) {
-      setError("Enter a valid phone number (e.g., 0712345678)")
-      return false
-    }
-    setError("")
-    return true
-  }
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let newValue = e.target.value
-    const cleaned = newValue.replace(/\s/g, "")
-    if (cleaned.length <= 10) {
-      if (cleaned.length > 6) {
-        newValue = `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7, 10)}`.trim()
-      } else if (cleaned.length > 4) {
-        newValue = `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)}`.trim()
-      } else {
-        newValue = cleaned
-      }
-    }
-    onChange(newValue)
-    validatePhone(newValue)
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium text-zinc-600">
-        Phone Number <span className="text-zinc-400">(for order updates)</span>
-      </label>
-      <input
-        type="tel"
-        placeholder="e.g., 0712 345 678"
-        value={value}
-        onChange={handleChange}
-        className={cn(
-          "w-full border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 transition-all",
-          error
-            ? "border-red-300 focus:ring-red-300 focus:border-red-300"
-            : "border-zinc-200 focus:ring-orange-300 focus:border-orange-300",
-        )}
-      />
-      {error && (
-        <p className="text-xs text-red-500 flex items-center gap-1">
-          <AlertCircle className="w-3 h-3" />
-          {error}
-        </p>
-      )}
-      <p className="text-xs text-zinc-400">We&apos;ll text you when your order is ready</p>
-    </div>
+    </Screen>
   )
 }
 
@@ -326,7 +302,6 @@ export default function MenuPage({
   const [cart, setCart] = useState<CartEntry[]>([])
   const [showCart, setShowCart] = useState(false)
   const [note, setNote] = useState("")
-  const [phone, setPhone] = useState("")
   const [loading, setLoading] = useState(false)
   const [menuLoading, setMenuLoading] = useState(false)
   const [joinError, setJoinError] = useState<string | null>(null)
@@ -336,17 +311,11 @@ export default function MenuPage({
   const [customer, setCustomer] = useState<CustomerSession | null>(null)
   const [cartId, setCartId] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null)
 
   // ── Initial session check on mount ──────────────────────────────────────────
-  //
-  // When the customer first lands on this URL (by scanning the QR code),
-  // we immediately check whether a session is active for this table.
-  //
-  //   Active   → show "join" screen (enter name → menu)
-  //   Inactive → show "waiting" screen (polls until active, then auto-advances)
-  //   Error    → show error screen
-  //
-  // This is the gateway that makes permanent table-ID QR codes work correctly.
+  //   Active   → "join" screen (enter name → menu)
+  //   Inactive → "waiting" screen (polls until active, then auto-advances)
   useEffect(() => {
     const checkInitialSession = async () => {
       try {
@@ -359,13 +328,20 @@ export default function MenuPage({
           setPageState("waiting")
         }
       } catch {
-        // If the table ID itself doesn't exist, show a permanent error.
-        // If it's just a network hiccup, default to waiting so we keep polling.
+        // Network hiccup or unknown table: default to waiting so we keep polling.
         setPageState("waiting")
       }
     }
     checkInitialSession()
   }, [tableId])
+
+  // Escape closes the cart sheet
+  useEffect(() => {
+    if (!showCart) return
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setShowCart(false)
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [showCart])
 
   // ── Cart helpers ─────────────────────────────────────────────────────────────
 
@@ -391,17 +367,6 @@ export default function MenuPage({
     })
   }
 
-  // ── Fetch table number ───────────────────────────────────────────────────────
-
-  const fetchTableNumber = async (tid: string) => {
-    try {
-      const data = await menuAPI.getSessionInfo(tid)
-      setTableNumber(data.table_number)
-    } catch {
-      // Non-critical — falls back to truncated ID in the header
-    }
-  }
-
   // ── Load menu ────────────────────────────────────────────────────────────────
 
   const loadMenu = async (tid: string) => {
@@ -411,7 +376,7 @@ export default function MenuPage({
       setMenuData(data)
       if (data.length > 0) setActiveCategory(data[0].category_id)
     } catch {
-      setErrorMessage("Could not load menu. Please ask your waiter for assistance.")
+      setErrorMessage("We couldn't load the menu.")
       setPageState("error")
     } finally {
       setMenuLoading(false)
@@ -426,7 +391,6 @@ export default function MenuPage({
     try {
       const customerSession = await customerAPI.join(tableId, name)
       setCustomer(customerSession)
-      // Use sessionId instead of tableId for cart creation
       const newCart = await cartAPI.create(sessionId!, customerSession.ID)
       setCartId(newCart.ID)
       await loadMenu(sessionId!)
@@ -434,8 +398,8 @@ export default function MenuPage({
     } catch (err: unknown) {
       const msg = getErrorMessage(err, "Failed to join table")
       if (msg.includes("expired") || msg.includes("closed") || msg.includes("session")) {
-        // Session was active when they hit the join screen but expired before
-        // they submitted their name — send them back to waiting to re-poll.
+        // Session was active when they hit the join screen but ended before they
+        // submitted their name. Send them back to waiting to re-poll.
         setPageState("waiting")
       } else {
         setJoinError(msg)
@@ -450,26 +414,17 @@ export default function MenuPage({
   const handleSubmitOrder = async () => {
     if (!customer || !cartId || cart.length === 0) return
 
-    if (phone) {
-      const cleanedPhone = phone.replace(/\s/g, "")
-      const phoneRegex = /^(07|01)\d{8}$/
-      if (!phoneRegex.test(cleanedPhone)) {
-        setSubmitError("Please enter a valid phone number (e.g., 0712345678)")
-        return
-      }
-    }
-
     setLoading(true)
     setSubmitError(null)
     try {
       await Promise.all(
         cart.map((item) => cartAPI.addItem(cartId, item.id, item.qty, customer.ID))
       )
-      // Use sessionId instead of tableId
-      await ordersAPI.submit(sessionId!, customer.ID, cartId)
+      await ordersAPI.submit(sessionId!, customer.ID, cartId, note)
+      // Keep a snapshot for the confirmation screen before the cart is cleared.
+      setPlacedOrder({ items: cart, total: totalPrice })
       setCart([])
       setNote("")
-      setPhone("")
       setShowCart(false)
       setPageState("success")
     } catch (err: unknown) {
@@ -484,11 +439,10 @@ export default function MenuPage({
   const handleOrderMore = async () => {
     if (!customer) return
     try {
-      // Use sessionId instead of tableId
       const newCart = await cartAPI.create(sessionId!, customer.ID)
       setCartId(newCart.ID)
     } catch {
-      // Best effort — existing cartId may still work
+      // Best effort. The existing cartId may still work.
     }
     setPageState("menu")
   }
@@ -497,7 +451,6 @@ export default function MenuPage({
 
   if (pageState === "checking") return <CheckingScreen />
 
-  // WaitingScreen polls and calls onSessionActive when the table goes live.
   if (pageState === "waiting") {
     return (
       <WaitingScreen
@@ -512,41 +465,44 @@ export default function MenuPage({
   }
 
   if (pageState === "join") {
-    return (
-      <JoinScreen
-        tableNumber={tableNumber}
-        onJoin={handleJoin}
-        loading={loading}
-        error={joinError}
-      />
-    )
+    return <JoinScreen tableNumber={tableNumber} onJoin={handleJoin} loading={loading} error={joinError} />
   }
 
-  if (pageState === "success") return <SuccessScreen onOrderMore={handleOrderMore} />
+  if (pageState === "success") {
+    return <SuccessScreen order={placedOrder} tableNumber={tableNumber} onOrderMore={handleOrderMore} />
+  }
   if (pageState === "error" || pageState === "expired") return <ErrorScreen message={errorMessage} />
   if (menuLoading) return <LoadingScreen />
 
   const activeCategoryData = menuData.find((c) => c.category_id === activeCategory)
+  const allItems = menuData.flatMap((c) => c.items)
+
+  const stepBtn =
+    "flex size-10 items-center justify-center rounded-full transition-colors active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] max-w-md mx-auto relative">
+    <div className="relative mx-auto min-h-dvh max-w-md bg-cream">
 
       {/* Header */}
-      <div className="bg-white border-b border-zinc-100 px-5 pt-5 pb-4 sticky top-0 z-10">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h1 className="text-lg font-bold text-zinc-900">Menu</h1>
-            <p className="text-sm text-zinc-400 mt-0.5">
-              Hi {customer?.Name} · Table {tableNumber ?? tableId.slice(0, 8) + "…"}
-            </p>
+      <header className="sticky top-0 z-10 border-b border-cream-border bg-white px-5 pt-4 pb-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <Logo variant="mark" className="h-6" title="Mezzani" />
+            <div className="min-w-0 leading-tight">
+              <h1 className="truncate text-base font-semibold text-charcoal">
+                Table {tableNumber ?? "…"}
+              </h1>
+              <p className="truncate text-xs text-charcoal/50">Hi {customer?.Name}</p>
+            </div>
           </div>
           <button
             onClick={() => setShowCart(true)}
-            className="relative p-2.5 bg-[#0f172a] rounded-xl"
+            aria-label={`Open your order, ${totalItems} ${totalItems === 1 ? "item" : "items"}`}
+            className="relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-charcoal text-cream focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
-            <ShoppingCart className="w-5 h-5 text-white" />
+            <ShoppingCart className="size-5" aria-hidden />
             {totalItems > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-brand-ink text-xs font-bold text-white">
                 {totalItems}
               </span>
             )}
@@ -554,159 +510,175 @@ export default function MenuPage({
         </div>
 
         {/* Category tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="scrollbar-hide -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
           {menuData.map((cat) => (
             <button
               key={cat.category_id}
               onClick={() => setActiveCategory(cat.category_id)}
+              aria-pressed={activeCategory === cat.category_id}
               className={cn(
-                "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all shrink-0",
+                "h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors",
+                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
                 activeCategory === cat.category_id
-                  ? "bg-orange-500 text-white shadow-sm shadow-orange-200"
-                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
+                  ? "bg-charcoal text-cream"
+                  : "bg-charcoal/6 text-charcoal/70 hover:bg-charcoal/10"
               )}
             >
               {cat.category_name}
             </button>
           ))}
         </div>
-      </div>
+      </header>
 
-      {/* Menu Items */}
-      <div className="px-4 py-4 space-y-3 pb-32">
+      {/* Menu items */}
+      <main className="space-y-3 px-4 py-4 pb-32">
         {menuData.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-sm text-zinc-400">No menu items available</p>
-            <p className="text-xs text-zinc-300 mt-1">Ask your waiter for assistance</p>
+          <div className="flex flex-col items-center py-20 text-center">
+            <p className="text-sm font-medium text-charcoal/60">The menu isn&apos;t available right now</p>
+            <p className="mt-1 text-xs text-charcoal/40">Please ask your waiter for help.</p>
           </div>
         )}
 
         {activeCategoryData?.items.map((item) => {
           const qty = getQty(item.id)
+          const orderable = item.available && !item.sold_out
           return (
-            <div
+            <article
               key={item.id}
               className={cn(
-                "bg-white rounded-2xl border border-zinc-100 p-4 shadow-sm transition-all",
-                (!item.available || item.sold_out) && "opacity-50",
+                "rounded-2xl border border-cream-border bg-white p-4",
+                !orderable && "opacity-60"
               )}
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold text-zinc-900">{item.name}</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-[0.9375rem] font-semibold text-charcoal">{item.name}</h2>
                     {item.is_special && (
-                      <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
-                        ⭐ Special
+                      <span className="inline-flex items-center gap-1 rounded-full bg-brand/12 px-2 py-0.5 text-xs font-medium text-brand-ink">
+                        <Star className="size-3 fill-current" aria-hidden />
+                        Special
                       </span>
                     )}
                     {item.sold_out && (
-                      <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">
-                        Sold Out
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+                        Sold out
                       </span>
                     )}
                   </div>
                   {item.description && (
-                    <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{item.description}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-charcoal/55">{item.description}</p>
                   )}
-                  <p className="text-sm font-bold text-orange-500 mt-2">
+                  <p className="mt-2 text-sm font-semibold tabular-nums text-brand-ink">
                     KES {item.price.toLocaleString()}
                   </p>
                 </div>
 
-                {item.available && !item.sold_out && (
+                {orderable && (
                   <div className="shrink-0">
                     {qty === 0 ? (
                       <button
                         onClick={() => addItem(item)}
-                        className="w-9 h-9 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center justify-center transition-all active:scale-95 shadow-sm shadow-orange-200"
+                        aria-label={`Add ${item.name}`}
+                        className="flex size-11 items-center justify-center rounded-full bg-charcoal text-cream transition-colors hover:bg-charcoal/90 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="size-5" />
                       </button>
                     ) : (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => removeItem(item.id)}
-                          className="w-8 h-8 bg-zinc-100 hover:bg-zinc-200 rounded-full flex items-center justify-center transition-all active:scale-95"
+                          aria-label={`Remove one ${item.name}`}
+                          className={cn(stepBtn, "bg-charcoal/6 text-charcoal hover:bg-charcoal/10")}
                         >
-                          <Minus className="w-3.5 h-3.5 text-zinc-600" />
+                          <Minus className="size-4" />
                         </button>
-                        <span className="text-sm font-bold text-zinc-900 w-4 text-center">{qty}</span>
+                        <span className="w-6 text-center text-sm font-semibold tabular-nums text-charcoal" aria-live="polite">
+                          {qty}
+                        </span>
                         <button
                           onClick={() => addItem(item)}
-                          className="w-8 h-8 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center justify-center transition-all active:scale-95"
+                          aria-label={`Add another ${item.name}`}
+                          className={cn(stepBtn, "bg-charcoal text-cream hover:bg-charcoal/90")}
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          <Plus className="size-4" />
                         </button>
                       </div>
                     )}
                   </div>
                 )}
               </div>
-            </div>
+            </article>
           )
         })}
-      </div>
+      </main>
 
-      {/* Sticky cart button */}
+      {/* Sticky cart bar */}
       {totalItems > 0 && !showCart && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md px-4 z-20">
+        <div className="fixed bottom-0 left-1/2 z-20 w-full max-w-md -translate-x-1/2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             onClick={() => setShowCart(true)}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-4 rounded-2xl flex items-center justify-between px-5 shadow-lg shadow-orange-200 transition-all active:scale-[0.98]"
+            className="flex h-14 w-full items-center justify-between rounded-2xl bg-charcoal px-5 text-cream shadow-lg shadow-charcoal/25 transition-transform active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
-            <span className="bg-orange-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">
+            <span className="flex size-6 items-center justify-center rounded-full bg-brand-ink text-xs font-bold text-white">
               {totalItems}
             </span>
-            <span>View Cart — KES {totalPrice.toLocaleString()}</span>
-            <ChevronRight className="w-4 h-4" />
+            <span className="font-medium">View order · KES {totalPrice.toLocaleString()}</span>
+            <ChevronRight className="size-4" aria-hidden />
           </button>
         </div>
       )}
 
       {/* Cart sheet */}
       {showCart && (
-        <div className="fixed inset-0 z-30 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowCart(false)} />
-          <div className="relative bg-white rounded-t-3xl max-h-[85vh] flex flex-col">
-            <div className="max-w-md w-full mx-auto flex flex-col h-full">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 shrink-0">
-                <h2 className="text-lg font-bold text-zinc-900">Your Order</h2>
-                <button onClick={() => setShowCart(false)} className="p-1.5 rounded-lg hover:bg-zinc-100">
-                  <X className="w-5 h-5 text-zinc-500" />
+        <div className="fixed inset-0 z-30 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="Your order">
+          <div className="absolute inset-0 bg-charcoal/50" onClick={() => setShowCart(false)} aria-hidden />
+          <div className="relative flex max-h-[88dvh] flex-col rounded-t-3xl bg-white">
+            <div className="mx-auto flex h-full min-h-0 w-full max-w-md flex-col">
+              <div className="flex shrink-0 items-center justify-between border-b border-cream-border px-5 py-3">
+                <h2 className="text-lg font-semibold text-charcoal">Your order</h2>
+                <button
+                  onClick={() => setShowCart(false)}
+                  aria-label="Close"
+                  className="-mr-2 flex size-11 items-center justify-center rounded-lg text-charcoal/60 hover:bg-charcoal/5 focus-visible:outline-2 focus-visible:outline-brand"
+                >
+                  <X className="size-5" />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
                 {cart.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-zinc-400">Your cart is empty</p>
-                  </div>
+                  <p className="py-8 text-center text-sm text-charcoal/50">Nothing here yet. Add something from the menu.</p>
                 ) : (
                   cart.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-zinc-900">{item.name}</p>
-                        <p className="text-xs text-zinc-400">KES {item.price} each</p>
+                    <div key={item.id} className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-charcoal">{item.name}</p>
+                        <p className="text-xs tabular-nums text-charcoal/50">KES {item.price.toLocaleString()} each</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => removeItem(item.id)}
-                          className="w-7 h-7 bg-zinc-100 rounded-full flex items-center justify-center hover:bg-zinc-200 transition-colors"
+                          aria-label={`Remove one ${item.name}`}
+                          className={cn(stepBtn, "bg-charcoal/6 text-charcoal hover:bg-charcoal/10")}
                         >
-                          <Minus className="w-3 h-3 text-zinc-600" />
+                          <Minus className="size-4" />
                         </button>
-                        <span className="text-sm font-bold w-4 text-center">{item.qty}</span>
+                        <span className="w-6 text-center text-sm font-semibold tabular-nums">{item.qty}</span>
                         <button
                           onClick={() => {
-                            const menuItem = activeCategoryData?.items.find((i) => i.id === item.id)
+                            // Search every category: the item may belong to a tab the guest
+                            // has since left. The old lookup only checked the open tab, so
+                            // "+" silently did nothing for items from other categories.
+                            const menuItem = allItems.find((i) => i.id === item.id)
                             if (menuItem) addItem(menuItem)
                           }}
-                          className="w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center hover:bg-orange-600 transition-colors"
+                          aria-label={`Add another ${item.name}`}
+                          className={cn(stepBtn, "bg-charcoal text-cream hover:bg-charcoal/90")}
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="size-4" />
                         </button>
-                        <span className="text-sm font-bold text-zinc-900 w-16 text-right">
+                        <span className="w-20 text-right text-sm font-semibold tabular-nums text-charcoal">
                           KES {(item.price * item.qty).toLocaleString()}
                         </span>
                       </div>
@@ -715,55 +687,57 @@ export default function MenuPage({
                 )}
               </div>
 
-              <div className="border-t border-zinc-100 bg-white shrink-0">
-                <div className="px-5 pt-4 pb-6 space-y-3">
+              <div className="shrink-0 border-t border-cream-border bg-white">
+                <div className="space-y-4 px-5 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+                  <div className="space-y-1.5">
+                    <label htmlFor="order-note" className="text-sm font-medium text-charcoal">
+                      Special instructions <span className="font-normal text-charcoal/45">(optional)</span>
+                    </label>
+                    <textarea
+                      id="order-note"
+                      placeholder="e.g. no onions, sauce on the side"
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      rows={2}
+                      maxLength={300}
+                      className={cn(fieldClass, "resize-none")}
+                    />
+                    <p className="text-xs text-charcoal/50">
+                      Have an allergy? Please tell your waiter as well.
+                    </p>
+                  </div>
+
                   <div className="flex items-center justify-between">
-                    <span className="text-base font-semibold text-zinc-900">Total</span>
-                    <span className="text-xl font-bold text-orange-500">
+                    <span className="text-base font-medium text-charcoal">Total</span>
+                    <span className="text-xl font-semibold tabular-nums text-charcoal">
                       KES {totalPrice.toLocaleString()}
                     </span>
                   </div>
 
-                  <PhoneInput value={phone} onChange={setPhone} />
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-zinc-600">Special Instructions</label>
-                    <textarea
-                      placeholder="Any special requests? (e.g., no onions, extra sauce)"
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      rows={3}
-                      className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 resize-none transition-all"
-                    />
-                  </div>
-
                   {submitError && (
-                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-                      <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                      <p className="text-xs text-red-600 flex-1">{submitError}</p>
+                    <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3">
+                      <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-600" aria-hidden />
+                      <p className="flex-1 text-sm text-red-700">{submitError}</p>
                     </div>
                   )}
 
                   <button
                     onClick={handleSubmitOrder}
                     disabled={loading || cart.length === 0}
-                    className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]"
+                    className={cn(primaryBtn, "h-14 rounded-2xl")}
                   >
                     {loading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <Loader2 className="size-5 animate-spin" aria-label="Placing order" />
                     ) : (
-                      <>
-                        <ShoppingCart className="w-5 h-5" />
-                        Place Order — KES {totalPrice.toLocaleString()}
-                      </>
+                      `Place order · KES ${totalPrice.toLocaleString()}`
                     )}
                   </button>
 
                   <button
                     onClick={() => setShowCart(false)}
-                    className="w-full text-center text-sm text-zinc-500 hover:text-orange-500 transition-colors py-2"
+                    className="h-11 w-full text-center text-sm font-medium text-charcoal/60 transition-colors hover:text-charcoal"
                   >
-                    Continue Shopping
+                    Keep browsing
                   </button>
                 </div>
               </div>

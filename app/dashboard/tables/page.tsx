@@ -110,7 +110,7 @@ const statusConfig: Record<TableStatus, {
   free: {
     label: "Free",
     dot: "bg-zinc-300",
-    card: "border-zinc-200 bg-white hover:border-zinc-300",
+    card: "border-cream-border bg-white hover:border-zinc-300",
     badge: "bg-zinc-100 text-zinc-500",
   },
   active: {
@@ -189,7 +189,7 @@ function QRDialog({
           )}
 
           {/* QR code — encodes tableId, never the sessionId */}
-          <div id="qr-dialog-code" className="bg-white p-4 rounded-2xl border border-zinc-200">
+          <div id="qr-dialog-code" className="bg-white p-4 rounded-2xl border border-cream-border">
             <QRCode
               value={url}
               size={180}
@@ -205,13 +205,13 @@ function QRDialog({
           <div className="flex gap-3 w-full">
             <button
               onClick={handleDownload}
-              className="flex-1 flex items-center justify-center gap-2 bg-[#0f172a] text-white text-sm font-semibold py-3 rounded-xl hover:bg-zinc-800 transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 bg-charcoal text-white text-sm font-semibold py-3 rounded-xl hover:bg-zinc-800 transition-colors"
             >
               <Download className="w-4 h-4" />
               Download PNG
             </button>
             <Button
-              className="flex-1 rounded-xl border border-zinc-200"
+              className="flex-1 rounded-xl border border-cream-border"
               variant="outline"
               onClick={onClose}
             >
@@ -307,7 +307,8 @@ function TableCard({
         <button
           onClick={() => onShowQR(table)}
           title="Show QR code"
-          className="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors"
+          aria-label={`Show QR code for table ${table.tableNumber}`}
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors"
         >
           <QrCode className="w-3.5 h-3.5" />
         </button>
@@ -315,7 +316,7 @@ function TableCard({
         {table.status === "free" ? (
           <button
             onClick={() => onActivate(table)}
-            className="flex-1 text-xs font-semibold bg-[#0f172a] hover:bg-zinc-800 text-white py-2 rounded-xl transition-colors"
+            className="flex-1 text-xs font-semibold bg-charcoal hover:bg-zinc-800 text-white py-2 rounded-xl transition-colors"
           >
             Start Session
           </button>
@@ -330,7 +331,8 @@ function TableCard({
             </button>
             <button
               onClick={() => onClose(table)}
-              className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 transition-colors"
+              aria-label={`Close table ${table.tableNumber}`}
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -351,6 +353,7 @@ const isOwner = user?.role === "owner"
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showActivateDialog, setShowActivateDialog] = useState(false)
+  const [closeTarget, setCloseTarget] = useState<Table | null>(null)
   const [showQRDialog, setShowQRDialog] = useState(false)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [selectedTable, setSelectedTable] = useState<Table | null>(null)
@@ -452,11 +455,15 @@ const isOwner = user?.role === "owner"
 
   const handleClose = async (table: Table) => {
     if (!table.sessionId) return
+    setActionLoading(true)
     try {
       await sessionsAPI.close(table.sessionId)
       await fetchTables()
     } catch {
       setError("Failed to close session")
+    } finally {
+      setActionLoading(false)
+      setCloseTarget(null)
     }
   }
 
@@ -495,7 +502,7 @@ const handleAddTable = async () => {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col flex-1 bg-[#F8FAFC]">
+    <div className="flex flex-col flex-1 bg-cream">
       <Topbar title="Tables" />
       <div className="p-6 space-y-5">
 
@@ -509,8 +516,8 @@ const handleAddTable = async () => {
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize",
                   filter === s
-                    ? "bg-[#0f172a] text-white"
-                    : "bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50",
+                    ? "bg-charcoal text-white"
+                    : "bg-white border border-cream-border text-zinc-600 hover:bg-zinc-50",
                 )}
               >
                 {s === "all" ? "All" : s}
@@ -525,7 +532,7 @@ const handleAddTable = async () => {
             <button
               onClick={fetchTables}
               title="Refresh"
-              className="p-2.5 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors"
+              className="p-2.5 rounded-xl bg-white border border-cream-border hover:bg-zinc-50 transition-colors"
             >
               <RefreshCw className="w-4 h-4 text-zinc-500" />
             </button>
@@ -540,7 +547,7 @@ const handleAddTable = async () => {
                 onClick={handleBulkDownload}
                 disabled={bulkDownloading}
                 title="Download QR codes for all tables"
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors text-xs font-medium text-zinc-600 disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-cream-border hover:bg-zinc-50 transition-colors text-xs font-medium text-zinc-600 disabled:opacity-50"
               >
                 {bulkDownloading
                   ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -553,7 +560,7 @@ const handleAddTable = async () => {
 {isOwner &&(
             <Button
               onClick={() => setShowAddDialog(true)}
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl gap-2 shadow-sm shadow-orange-200"
+              className="bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl gap-2 shadow-sm shadow-charcoal/10"
             >
               <Plus className="w-4 h-4" />
               Add Table
@@ -602,7 +609,7 @@ const handleAddTable = async () => {
         {/* Table grid */}
         {!loading && filtered.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {filtered
+            {[...filtered]
               .sort((a, b) => {
                 const order: Record<TableStatus, number> = { expiring: 0, active: 1, free: 2 }
                 return order[a.status] - order[b.status] || a.tableNumber - b.tableNumber
@@ -613,7 +620,7 @@ const handleAddTable = async () => {
                   table={table}
                   onActivate={handleActivate}
                   onExtend={handleExtend}
-                  onClose={handleClose}
+                  onClose={(t) => setCloseTarget(t)}
                   onShowQR={(t) => { setSelectedTable(t); setShowQRDialog(true) }}
                 />
               ))}
@@ -627,6 +634,31 @@ const handleAddTable = async () => {
         table={selectedTable}
         onClose={() => setShowQRDialog(false)}
       />
+
+      {/* Close-table confirmation: one tap used to end a live session (and the guests' QR menu). */}
+      <Dialog open={closeTarget !== null} onOpenChange={(o) => !o && setCloseTarget(null)}>
+        <DialogContent className="rounded-2xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Close Table {closeTarget?.tableNumber}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm leading-relaxed text-charcoal/65">
+            This ends the session. Guests at the table won&apos;t be able to order from their phones until you
+            start a new one.
+          </p>
+          <div className="flex gap-3 mt-2">
+            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setCloseTarget(null)} disabled={actionLoading}>
+              Keep open
+            </Button>
+            <Button
+              className="flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700"
+              onClick={() => closeTarget && handleClose(closeTarget)}
+              disabled={actionLoading}
+            >
+              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Close table"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Activate dialog */}
       <Dialog open={showActivateDialog} onOpenChange={setShowActivateDialog}>
@@ -645,8 +677,8 @@ const handleAddTable = async () => {
                     className={cn(
                       "py-2 rounded-xl text-sm font-medium border transition-all",
                       duration === d
-                        ? "bg-[#0f172a] text-white border-[#0f172a]"
-                        : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50",
+                        ? "bg-charcoal text-white border-charcoal"
+                        : "bg-white text-zinc-600 border-cream-border hover:bg-zinc-50",
                     )}
                   >
                     {Number(d) / 60}h
@@ -674,7 +706,7 @@ const handleAddTable = async () => {
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-[#0f172a] hover:bg-zinc-800 text-white rounded-xl"
+                className="flex-1 bg-charcoal hover:bg-zinc-800 text-white rounded-xl"
                 onClick={confirmActivate}
                 disabled={actionLoading}
               >
@@ -722,7 +754,7 @@ const handleAddTable = async () => {
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
+                className="flex-1 bg-charcoal hover:bg-charcoal/90 text-cream rounded-xl"
                 onClick={handleAddTable}
                 disabled={actionLoading}
               >

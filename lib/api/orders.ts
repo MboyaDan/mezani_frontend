@@ -47,12 +47,15 @@ export const ordersAPI = {
   submit: async (
     tableSessionId: string,
     customerSessionId: string,
-    cartId: string
+    cartId: string,
+    note?: string
   ) => {
     const res = await API.post("/orders/submit", {
       table_session_id: tableSessionId,
       customer_session_id: customerSessionId,  // order handler uses customer_session_id
       cart_id: cartId,
+      // Only sent when the guest wrote one. The kitchen display already renders order.note.
+      ...(note && note.trim() ? { note: note.trim() } : {}),
     })
 
     return res.data as Order

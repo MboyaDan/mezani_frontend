@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/useAuth"
 import { useBranch } from "@/hooks/useBranch"
+import { orderStatus } from "@/lib/order-status"
+import { Logo } from "@/components/brand/logo"
 import { sessionsAPI } from "@/lib/api/tables"
 import {
   TableProperties,
@@ -76,6 +78,17 @@ function getMinutesLeft(expiresAt?: Date) {
   return Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 60000))
 }
 
+// Real length of this session = when it expires minus when it started. The backend
+// does not store the chosen duration separately, but both timestamps come back with
+// each table, and extending a session moves expires_at, so this stays correct for
+// 1h / 2h / 3h tables and after "+30 min". (The bar used to assume 120 minutes.)
+function getProgressPct(minsLeft: number, openedAt?: Date, expiresAt?: Date) {
+  if (!openedAt || !expiresAt) return 0
+  const totalMins = (expiresAt.getTime() - openedAt.getTime()) / 60000
+  if (totalMins <= 0) return 0
+  return Math.min(100, Math.max(0, (minsLeft / totalMins) * 100))
+}
+
 function getElapsed(openedAt?: Date) {
   if (!openedAt) return ""
   const mins = Math.floor((Date.now() - openedAt.getTime()) / 60000)
@@ -92,13 +105,6 @@ function getOrderElapsed(createdAt: string) {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const ORDER_STATUS_CONFIG: Record<string, { label: string; class: string }> = {
-  pending:   { label: "New",            class: "bg-orange-100 text-orange-700" },
-  accepted:  { label: "Accepted",       class: "bg-blue-100 text-blue-700" },
-  preparing: { label: "Preparing",      class: "bg-yellow-100 text-yellow-700" },
-  ready:     { label: "Ready to serve", class: "bg-emerald-100 text-emerald-700" },
-}
-
 // ─── QRCode wrapper ───────────────────────────────────────────────────────────
 // react-qr-code types its export via SVGProps which conflicts with React's JSX
 // props check (TS2607). Casting to a plain FC with only the props we use fixes it.
@@ -109,37 +115,6 @@ const QRCodeWrapper = QRCode as unknown as React.FC<{
 }>
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-function TabButton({
-  active,
-  onClick,
-  children,
-  badge,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-  badge?: number
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold border-b-2 transition-all",
-        active
-          ? "border-orange-500 text-orange-600"
-          : "border-transparent text-zinc-400 hover:text-zinc-600"
-      )}
-    >
-      {children}
-      {badge !== undefined && badge > 0 && (
-        <span className="w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-          {badge}
-        </span>
-      )}
-    </button>
-  )
-}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -158,6 +133,7 @@ export default function WaiterPage() {
   const [showQRDialog, setShowQRDialog]             = useState(false)
   const [duration, setDuration]                     = useState("120")
   const [actionLoading, setActionLoading]           = useState(false)
+  const [closeTarget, setCloseTarget]               = useState<Table | null>(null)
 
   // Gates any Date.now()-derived rendering so SSR and the first client paint are
   // identical (empty strings / zero widths). Flips to true in the mount effect.
@@ -276,11 +252,16 @@ export default function WaiterPage() {
 
   const handleClose = async (table: Table) => {
     if (!table.sessionId) return
+    setActionLoading(true)
     try {
       await sessionsAPI.close(table.sessionId)
       await fetchTablesRef.current()
+      setCloseTarget(null)
     } catch {
       setError("Failed to close session")
+      setCloseTarget(null)
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -319,199 +300,233 @@ export default function WaiterPage() {
   // Gating on !isMounted means both environments always render the spinner first.
   if (!isMounted || !branchId) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
-        <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
+      <div className="flex min-h-screen items-center justify-center bg-cream">
+        <Loader2 className="size-5 animate-spin text-charcoal/40" aria-label="Loading" />
       </div>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-[#F8FAFC] max-w-md mx-auto flex flex-col">
+  // Sorted copies. The previous code called .sort() on state inside render, which
+  // mutates the array React owns.
+  const sortedTables = [...tables].sort((a, b) => {
+    const rank: Record<TableStatus, number> = { expiring: 0, active: 1, free: 2 }
+    return rank[a.status] - rank[b.status] || a.tableNumber - b.tableNumber
+  })
+  const sortedOrders = [...orders].sort((a, b) => {
+    const rank: Record<string, number> = { ready: 0, pending: 1, accepted: 2, preparing: 3 }
+    return (rank[a.status] ?? 9) - (rank[b.status] ?? 9)
+  })
 
-      {/* ── Header ── */}
-      <div className="bg-white border-b border-zinc-200 px-5 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-bold text-zinc-900">Waiter View</h1>
-            {/* suppressHydrationWarning: counts are 0 on the server, real values on client */}
-            <p className="text-xs text-zinc-400 mt-0.5" suppressHydrationWarning>
-              {activeTables.length} active · {freeTables.length} free
-            </p>
+  const tabClass = (active: boolean) =>
+    cn(
+      "flex h-12 flex-1 items-center justify-center gap-2 border-b-2 text-sm font-semibold transition-colors",
+      "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand",
+      active ? "border-brand text-charcoal" : "border-transparent text-charcoal/45 hover:text-charcoal/70"
+    )
+
+  const iconBtn =
+    "flex size-11 shrink-0 items-center justify-center rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+
+  return (
+    <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col bg-cream">
+
+      {/* ── Header + tabs: ONE sticky block, so alert banners can never push the
+            tabs out of alignment (they used to sit at a hard-coded top-[72px]). ── */}
+      <div className="sticky top-0 z-20 border-b border-cream-border bg-white">
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+          <div className="flex items-center gap-3">
+            <Logo variant="mark" className="h-6" title="Mezzani" />
+            <div className="leading-tight">
+              <h1 className="text-base font-semibold text-charcoal">Waiter view</h1>
+              {/* suppressHydrationWarning: counts are 0 on the server, real values on client */}
+              <p className="text-xs text-charcoal/50" suppressHydrationWarning>
+                {activeTables.length} active · {freeTables.length} free
+              </p>
+            </div>
           </div>
           <button
             onClick={logout}
-            className="p-2 rounded-xl hover:bg-zinc-100 transition-colors text-zinc-400"
+            aria-label="Sign out"
+            className={cn(iconBtn, "text-charcoal/50 hover:bg-charcoal/5 hover:text-charcoal")}
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="size-4" />
           </button>
         </div>
 
-        {expiringTables.length > 0 && (
-          <div className="mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <p className="text-xs font-medium text-amber-700">
-              Table {expiringTables.map((t) => t.tableNumber).join(", ")} expiring — extend or close
-            </p>
-          </div>
-        )}
-
-        {readyOrders.length > 0 && (
-          <div className="mt-2 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <p className="text-xs font-medium text-emerald-700">
-              {readyOrders.length} {readyOrders.length === 1 ? "order is" : "orders are"} ready to serve
-            </p>
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-2 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-            <p className="text-xs text-red-600">{error}</p>
-          </div>
-        )}
-      </div>
-
-      {/* ── Tabs ── */}
-      <div className="bg-white border-b border-zinc-200 flex sticky top-[72px] z-10">
-        <TabButton active={tab === "tables"} onClick={() => setTab("tables")}>
-          <TableProperties className="w-4 h-4" />
-          Tables
-        </TabButton>
-        <TabButton
-          active={tab === "orders"}
-          onClick={() => setTab("orders")}
-          badge={readyOrders.length}
-        >
-          <ClipboardList className="w-4 h-4" />
-          Orders
-        </TabButton>
+        <div role="tablist" aria-label="Waiter sections" className="flex">
+          <button
+            role="tab"
+            aria-selected={tab === "tables"}
+            onClick={() => setTab("tables")}
+            className={tabClass(tab === "tables")}
+          >
+            <TableProperties className="size-4" aria-hidden />
+            Tables
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === "orders"}
+            onClick={() => setTab("orders")}
+            className={tabClass(tab === "orders")}
+          >
+            <ClipboardList className="size-4" aria-hidden />
+            Orders
+            {readyOrders.length > 0 && (
+              <span className="flex size-5 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                {readyOrders.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* ── Content ── */}
-      <div className="flex-1 p-4 space-y-3 pb-8">
+      <div className="flex-1 space-y-3 p-4 pb-10">
+
+        {/* Alerts live in the content flow, not in the sticky header */}
+        {expiringTables.length > 0 && (
+          <div role="status" className="flex items-center gap-2.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3">
+            <AlertCircle className="size-4 shrink-0 text-amber-700" aria-hidden />
+            <p className="text-sm font-medium text-amber-900">
+              Table {expiringTables.map((t) => t.tableNumber).join(", ")} expiring. Extend or close.
+            </p>
+          </div>
+        )}
+        {readyOrders.length > 0 && tab === "tables" && (
+          <button
+            onClick={() => setTab("orders")}
+            className="flex w-full items-center gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-3 text-left"
+          >
+            <CheckCircle2 className="size-4 shrink-0 text-emerald-700" aria-hidden />
+            <span className="text-sm font-medium text-emerald-900">
+              {readyOrders.length} {readyOrders.length === 1 ? "order is" : "orders are"} ready to serve. View
+            </span>
+          </button>
+        )}
+        {error && (
+          <div role="alert" className="flex items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3">
+            <AlertCircle className="size-4 shrink-0 text-red-600" aria-hidden />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
 
         {/* TABLES TAB */}
         {tab === "tables" && (
           <>
             {loading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
+                <Loader2 className="size-6 animate-spin text-charcoal/40" aria-label="Loading tables" />
               </div>
             ) : tables.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <TableProperties className="w-10 h-10 text-zinc-200 mb-3" />
-                <p className="text-sm text-zinc-400 font-medium">No tables found</p>
+              <div className="flex flex-col items-center py-20 text-center">
+                <TableProperties className="mb-3 size-10 text-charcoal/20" aria-hidden />
+                <p className="text-sm font-medium text-charcoal/60">No tables found</p>
+                <p className="mt-1 text-xs text-charcoal/40">Ask a manager to add tables for this branch.</p>
               </div>
             ) : (
-              tables
-                .sort((a, b) => {
-                  const rank: Record<TableStatus, number> = { expiring: 0, active: 1, free: 2 }
-                  return rank[a.status] - rank[b.status] || a.tableNumber - b.tableNumber
-                })
-                .map((table) => {
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {sortedTables.map((table) => {
                   // isMounted guard: return 0 / "" on server so output matches SSR
                   const minsLeft   = isMounted ? getMinutesLeft(table.expiresAt) : 0
                   const elapsed    = isMounted ? getElapsed(table.openedAt) : ""
                   const isCritical = table.status === "expiring"
+                  const isFree     = table.status === "free"
 
                   return (
-                    <div
+                    <li
                       key={table.id}
                       className={cn(
-                        "bg-white rounded-2xl border p-4 transition-all",
-                        isCritical
-                          ? "border-amber-300 ring-1 ring-amber-200"
-                          : table.status === "active"
-                          ? "border-emerald-200"
-                          : "border-zinc-200"
+                        "rounded-2xl border bg-white p-4",
+                        isCritical ? "border-amber-400 ring-1 ring-amber-200" : "border-cream-border"
                       )}
                     >
-                      <div className="flex items-start gap-4">
-                        <div className={cn(
-                          "w-12 h-12 rounded-2xl text-lg font-bold flex items-center justify-center shrink-0",
-                          isCritical
-                            ? "bg-amber-500 text-white"
-                            : table.status === "active"
-                            ? "bg-[#0f172a] text-white"
-                            : "bg-zinc-100 text-zinc-400"
-                        )}>
+                      <div className="flex items-start gap-3.5">
+                        <div
+                          className={cn(
+                            "flex size-12 shrink-0 items-center justify-center rounded-xl text-lg font-semibold tabular-nums",
+                            isCritical
+                              ? "bg-amber-500 text-charcoal"
+                              : isFree
+                              ? "bg-charcoal/6 text-charcoal/40"
+                              : "bg-charcoal text-cream"
+                          )}
+                        >
                           {table.tableNumber}
                         </div>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-bold text-zinc-900">Table {table.tableNumber}</p>
-                            {table.status !== "free" && (
-                              <span className={cn(
-                                "text-xs font-medium px-2 py-0.5 rounded-full",
-                                isCritical ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
-                              )}>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-charcoal">Table {table.tableNumber}</p>
+                            {!isFree && (
+                              <span
+                                className={cn(
+                                  "rounded-full px-2 py-0.5 text-xs font-medium",
+                                  isCritical ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+                                )}
+                              >
                                 {isCritical ? `${minsLeft}m left` : "Active"}
                               </span>
                             )}
                           </div>
 
-                          {table.status !== "free" ? (
-                            <div className="mt-1 space-y-1">
-                              <div className="flex items-center gap-3 text-xs text-zinc-500">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {elapsed}
-                                </span>
-                              </div>
-                              <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
+                          {!isFree ? (
+                            <div className="mt-1.5 space-y-2">
+                              <p className="flex items-center gap-1.5 text-xs text-charcoal/55">
+                                <Clock className="size-3" aria-hidden />
+                                Open {elapsed}
+                              </p>
+                              <div className="h-1 overflow-hidden rounded-full bg-charcoal/8">
                                 <div
-                                  className={cn(
-                                    "h-full rounded-full transition-all",
-                                    isCritical ? "bg-amber-500" : "bg-emerald-500"
-                                  )}
-                                  style={{ width: `${Math.min((minsLeft / 120) * 100, 100)}%` }}
+                                  className={cn("h-full rounded-full transition-all", isCritical ? "bg-amber-500" : "bg-emerald-600")}
+                                  style={{ width: `${isMounted ? getProgressPct(minsLeft, table.openedAt, table.expiresAt) : 0}%` }}
                                 />
                               </div>
                             </div>
                           ) : (
-                            <p className="text-xs text-zinc-400 mt-0.5">No active session</p>
+                            <p className="mt-1 text-xs text-charcoal/45">Free. No active session.</p>
                           )}
                         </div>
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 mt-3">
-                        {table.status === "free" ? (
+                      {/* Actions: 44px touch targets, labelled */}
+                      <div className="mt-3.5 flex items-center gap-2">
+                        {isFree ? (
                           <button
                             onClick={() => handleActivate(table)}
-                            className="flex-1 bg-[#0f172a] hover:bg-zinc-800 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+                            className="h-11 flex-1 rounded-xl bg-charcoal text-sm font-medium text-cream transition-colors hover:bg-charcoal/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                           >
-                            Start Session
+                            Start session
                           </button>
                         ) : (
                           <>
                             <button
                               onClick={() => { setSelectedTable(table); setShowQRDialog(true) }}
-                              className="p-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors"
+                              aria-label={`Show QR code for table ${table.tableNumber}`}
+                              className={cn(iconBtn, "bg-charcoal/6 text-charcoal/70 hover:bg-charcoal/10")}
                             >
-                              <QrCode className="w-4 h-4" />
+                              <QrCode className="size-4" />
                             </button>
                             <button
                               onClick={() => handleExtend(table)}
-                              className="flex-1 flex items-center justify-center gap-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-sm font-medium py-2.5 rounded-xl transition-colors"
+                              className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-charcoal/6 text-sm font-medium text-charcoal transition-colors hover:bg-charcoal/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                             >
-                              <RefreshCw className="w-3.5 h-3.5" />
+                              <RefreshCw className="size-3.5" aria-hidden />
                               +30 min
                             </button>
                             <button
-                              onClick={() => handleClose(table)}
-                              className="p-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 transition-colors"
+                              onClick={() => setCloseTarget(table)}
+                              aria-label={`Close table ${table.tableNumber}`}
+                              className={cn(iconBtn, "bg-red-50 text-red-600 hover:bg-red-100")}
                             >
-                              <X className="w-4 h-4" />
+                              <X className="size-4" />
                             </button>
                           </>
                         )}
                       </div>
-                    </div>
+                    </li>
                   )
-                })
+                })}
+              </ul>
             )}
           </>
         )}
@@ -521,98 +536,96 @@ export default function WaiterPage() {
           <>
             {ordersLoading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
+                <Loader2 className="size-6 animate-spin text-charcoal/40" aria-label="Loading orders" />
               </div>
             ) : orders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <ClipboardList className="w-10 h-10 text-zinc-200 mb-3" />
-                <p className="text-sm text-zinc-400 font-medium">No active orders</p>
-                <p className="text-xs text-zinc-300 mt-1">Orders appear here when customers place them</p>
+              <div className="flex flex-col items-center py-20 text-center">
+                <ClipboardList className="mb-3 size-10 text-charcoal/20" aria-hidden />
+                <p className="text-sm font-medium text-charcoal/60">No active orders</p>
+                <p className="mt-1 text-xs text-charcoal/40">Orders appear here when guests place them.</p>
               </div>
             ) : (
-              orders
-                .sort((a, b) => {
-                  const rank: Record<string, number> = { ready: 0, pending: 1, accepted: 2, preparing: 3 }
-                  return (rank[a.status] ?? 9) - (rank[b.status] ?? 9)
-                })
-                .map((order) => {
-                  const statusCfg = ORDER_STATUS_CONFIG[order.status] ?? ORDER_STATUS_CONFIG.pending
-                  const isReady   = order.status === "ready"
+              <ul className="space-y-3">
+                {sortedOrders.map((order) => {
+                  const st      = orderStatus(order.status)
+                  const isReady = order.status === "ready"
                   return (
-                    <div
+                    <li
                       key={order.id}
                       className={cn(
-                        "bg-white rounded-2xl border p-4 transition-all",
-                        isReady ? "border-emerald-300 ring-1 ring-emerald-100" : "border-zinc-200"
+                        "rounded-2xl border bg-white p-4",
+                        isReady ? "border-emerald-400 ring-1 ring-emerald-100" : "border-cream-border"
                       )}
                     >
-                      <div className="flex items-start justify-between mb-3">
+                      <div className="mb-3 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-[#0f172a] text-white text-sm font-bold flex items-center justify-center">
+                          <span className="flex size-10 items-center justify-center rounded-xl bg-charcoal text-sm font-semibold tabular-nums text-cream">
                             {order.table_number}
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-zinc-900">Table {order.table_number}</p>
-                            <p className="text-xs text-zinc-400">
+                          </span>
+                          <div className="leading-tight">
+                            <p className="text-sm font-semibold text-charcoal">Table {order.table_number}</p>
+                            <p className="mt-0.5 text-xs text-charcoal/50">
                               {isMounted ? getOrderElapsed(order.created_at) : ""}
                             </p>
                           </div>
                         </div>
-                        <span className={cn("text-xs font-semibold px-2.5 py-1 rounded-full", statusCfg.class)}>
-                          {statusCfg.label}
+                        <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", st.chip)}>
+                          {isReady ? "Ready to serve" : st.label}
                         </span>
                       </div>
 
-                      <div className="space-y-1 mb-3">
+                      <ul className="mb-3 space-y-1">
                         {order.items.map((item, i) => (
-                          <div key={i} className="flex items-center gap-2 text-sm">
-                            <span className="text-zinc-400 w-4 text-xs">{item.quantity}×</span>
-                            <span className="text-zinc-700">{item.name}</span>
-                          </div>
+                          <li key={i} className="flex items-baseline gap-2 text-sm">
+                            <span className="w-6 shrink-0 text-xs tabular-nums text-charcoal/45">{item.quantity}×</span>
+                            <span className="text-charcoal/80">{item.name}</span>
+                          </li>
                         ))}
-                      </div>
+                      </ul>
 
-                      <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
-                        <span className="text-base font-bold text-zinc-900">
+                      <div className="flex items-center justify-between gap-3 border-t border-cream-border pt-3">
+                        <span className="text-base font-semibold tabular-nums text-charcoal">
                           KES {order.total.toLocaleString()}
                         </span>
                         {isReady && (
                           <button
                             onClick={() => handleMarkServed(order.id)}
-                            className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors"
+                            className="flex h-11 items-center gap-2 rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Mark Served
+                            <CheckCircle2 className="size-4" aria-hidden />
+                            Mark served
                           </button>
                         )}
                       </div>
-                    </div>
+                    </li>
                   )
-                })
+                })}
+              </ul>
             )}
           </>
         )}
       </div>
 
-      {/* ── Activate Dialog ── */}
+      {/* ── Start session dialog ── */}
       <Dialog open={showActivateDialog} onOpenChange={setShowActivateDialog}>
-        <DialogContent className="rounded-2xl max-w-sm mx-4">
+        <DialogContent className="mx-4 max-w-sm rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Start Session — Table {selectedTable?.tableNumber}</DialogTitle>
+            <DialogTitle>Start session: Table {selectedTable?.tableNumber}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-2">
+          <div className="mt-2 space-y-4">
             <div className="space-y-2">
-              <Label>Duration</Label>
+              <Label>How long should the table stay open?</Label>
               <div className="grid grid-cols-3 gap-2">
                 {["60", "120", "180"].map((d) => (
                   <button
                     key={d}
                     onClick={() => setDuration(d)}
+                    aria-pressed={duration === d}
                     className={cn(
-                      "py-2.5 rounded-xl text-sm font-medium border transition-all",
+                      "h-11 rounded-xl border text-sm font-medium transition-colors",
                       duration === d
-                        ? "bg-[#0f172a] text-white border-[#0f172a]"
-                        : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50"
+                        ? "border-charcoal bg-charcoal text-cream"
+                        : "border-cream-border bg-white text-charcoal/70 hover:bg-cream"
                     )}
                   >
                     {Number(d) / 60}h
@@ -623,33 +636,65 @@ export default function WaiterPage() {
             <div className="flex gap-3">
               <Button
                 variant="outline"
-                className="flex-1 rounded-xl"
+                className="h-11 flex-1 rounded-xl"
                 onClick={() => setShowActivateDialog(false)}
                 disabled={actionLoading}
               >
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-[#0f172a] hover:bg-zinc-800 text-white rounded-xl"
+                className="h-11 flex-1 rounded-xl bg-charcoal text-cream hover:bg-charcoal/90"
                 onClick={confirmActivate}
                 disabled={actionLoading}
               >
-                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Start"}
+                {actionLoading ? <Loader2 className="size-4 animate-spin" /> : "Start"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* ── QR Dialog ── */}
-      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
-<DialogContent className="rounded-2xl max-w-sm mx-4" aria-describedby={undefined}>      
-      <DialogHeader>
-            <DialogTitle>QR Code — Table {selectedTable?.tableNumber}</DialogTitle>
+      {/* ── Close table confirmation ──
+            One tap used to end a table's session instantly. On a busy floor that
+            is easy to hit by accident, and it invalidates the guests' QR menu. ── */}
+      <Dialog open={closeTarget !== null} onOpenChange={(o) => !o && setCloseTarget(null)}>
+        <DialogContent className="mx-4 max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Close Table {closeTarget?.tableNumber}?</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col items-center gap-4 py-4">
+          <p className="text-sm leading-relaxed text-charcoal/65">
+            This ends the session. Guests at the table won&apos;t be able to order from their phones until you
+            start a new one.
+          </p>
+          <div className="mt-2 flex gap-3">
+            <Button
+              variant="outline"
+              className="h-11 flex-1 rounded-xl"
+              onClick={() => setCloseTarget(null)}
+              disabled={actionLoading}
+            >
+              Keep open
+            </Button>
+            <Button
+              className="h-11 flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700"
+              onClick={() => closeTarget && handleClose(closeTarget)}
+              disabled={actionLoading}
+            >
+              {actionLoading ? <Loader2 className="size-4 animate-spin" /> : "Close table"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── QR dialog ── */}
+      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+        <DialogContent className="mx-4 max-w-sm rounded-2xl" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>QR code: Table {selectedTable?.tableNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-2">
             {selectedTable && (
-              <div className="bg-white p-4 rounded-2xl border border-zinc-200">
+              <div className="rounded-2xl border border-cream-border bg-white p-4">
                 <QRCodeWrapper
                   value={buildMenuUrl(selectedTable.id)}
                   size={180}
@@ -657,11 +702,11 @@ export default function WaiterPage() {
                 />
               </div>
             )}
-            <p className="text-xs text-zinc-500 text-center">
-              Table {selectedTable?.tableNumber} · Scan to view menu
+            <p className="text-center text-xs text-charcoal/55">
+              Table {selectedTable?.tableNumber} · Guests scan this to see the menu
             </p>
             <Button
-              className="w-full bg-[#0f172a] text-white rounded-xl"
+              className="h-11 w-full rounded-xl bg-charcoal text-cream hover:bg-charcoal/90"
               onClick={() => setShowQRDialog(false)}
             >
               Done
