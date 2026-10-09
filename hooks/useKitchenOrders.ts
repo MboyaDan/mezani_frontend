@@ -1,5 +1,6 @@
 "use client"
 import { useState, useEffect, useRef, useCallback } from "react"
+import { getBranchSocketUrl, reconnectDelayMs } from "@/lib/api/ws"
 
 export interface KitchenOrderItem {
   name: string
@@ -28,6 +29,8 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMounted = useRef(false)
+  const genRef = useRef(0)
+  const attemptsRef = useRef(0)
 
   // ─── fetch active orders on mount ───────────────────────────────────────────
   // Guards against the race where the WS connects after an order was already
@@ -77,6 +80,7 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
 
   // ─── teardown helper ────────────────────────────────────────────────────────
   const teardown = useCallback(() => {
+    genRef.current++
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current)
       reconnectTimer.current = null
@@ -100,8 +104,7 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
   }, [])
 
   // ─── connect ────────────────────────────────────────────────────────────────
-  const connect = useCallback(() => {
-
+  const connect = useCallback(async () => {
     if (!branchId) return
 
     if (
@@ -112,9 +115,25 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
       return
     }
 
-    const base =
-      process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8080/ws/kitchen"
-    const wsUrl = `${base}?branch_id=${branchId}`
+    // Each attempt gets a generation number. teardown() and newer attempts bump it,
+    // so a slow ticket request can never open a socket for a stale branch or after
+    // unmount (also covers React Strict Mode's double effect).
+    const gen = ++genRef.current
+
+    let wsUrl: string
+    try {
+      wsUrl = await getBranchSocketUrl(branchId)
+    } catch {
+      // Not signed in, forbidden for this branch, or the server is unreachable.
+      if (gen === genRef.current && isMounted.current) {
+        reconnectTimer.current = setTimeout(() => {
+          if (isMounted.current) connect()
+        }, reconnectDelayMs(attemptsRef.current++))
+      }
+      return
+    }
+
+    if (gen !== genRef.current || !isMounted.current) return
 
     let ws: WebSocket
     try {
@@ -122,7 +141,7 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
     } catch {
       reconnectTimer.current = setTimeout(() => {
         if (isMounted.current) connect()
-      }, 3000)
+      }, reconnectDelayMs(attemptsRef.current++))
       return
     }
 
@@ -133,6 +152,7 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
       if (!isMounted.current) return
 
       setConnected(true)
+      attemptsRef.current = 0
 
       if (reconnectTimer.current) {
         clearTimeout(reconnectTimer.current)
@@ -208,7 +228,7 @@ export function useKitchenOrders(branchId: string, initialOrders: KitchenOrder[]
 
       reconnectTimer.current = setTimeout(() => {
         if (isMounted.current) connect()
-      }, 3000)
+      }, reconnectDelayMs(attemptsRef.current++))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchId])
