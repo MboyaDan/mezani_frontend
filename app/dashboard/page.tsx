@@ -73,8 +73,13 @@ export default function DashboardPage() {
 
   if (!branchId) return <BranchRequired />
 
-  const popular: any[] = analytics?.popular_items ?? []
-  const topSold = Number(popular[0]?.total_sold ?? popular[0]?.total_orders ?? 0)
+  // The backend serialises these rows with Go field names (Name, TotalSold). Reading only
+  // lowercase keys is what produced "undefined sold" and a blank "Top dishes" row.
+  const popular: { name: string; sold: number }[] = (analytics?.popular_items ?? []).map((d: any) => ({
+    name: d.Name ?? d.name ?? "",
+    sold: Number(d.TotalSold ?? d.total_sold ?? d.total_orders) || 0,
+  }))
+  const topSold = popular[0]?.sold ?? 0
   const revenue =
     analytics?.daily_sales != null ? `KES ${Number(analytics.daily_sales).toLocaleString()}` : "KES 0"
 
@@ -122,7 +127,7 @@ export default function DashboardPage() {
                 {
                   title: "Best seller (30 days)",
                   value: popular[0]?.name ?? "—",
-                  note: popular[0] ? `${popular[0].total_sold ?? popular[0].total_orders} sold in 30 days` : "No sales yet",
+                  note: popular[0] ? `${popular[0].sold} sold in 30 days` : "No sales yet",
                 },
               ].map((s) => (
                 <div key={s.title} className={cn(card, "p-5")}>
@@ -180,7 +185,7 @@ export default function DashboardPage() {
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-charcoal">Table {order.table_number}</p>
                             <p className="truncate text-xs text-charcoal/50">
-                              {order.items?.length ?? 0} items ·{" "}
+                              {order.items?.length ?? 0} {order.items?.length === 1 ? "item" : "items"} ·{" "}
                               {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
                             </p>
                           </div>
@@ -218,7 +223,7 @@ export default function DashboardPage() {
               ) : (
                 <ol className="mt-4 space-y-4 px-5 pb-5">
                   {popular.slice(0, 5).map((dish, i) => {
-                    const sold = Number(dish.total_sold ?? dish.total_orders ?? 0)
+                    const sold = dish.sold
                     const pct = topSold > 0 ? Math.max(4, (sold / topSold) * 100) : 0
                     return (
                       <li key={`${i}-${dish.name}`} className="flex items-center gap-3">

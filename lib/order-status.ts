@@ -13,6 +13,7 @@ export const ORDER_STATUS: Record<string, OrderStatusStyle> = {
   preparing: { label: "Preparing", chip: "bg-amber-100 text-amber-800" },
   ready:     { label: "Ready",     chip: "bg-emerald-100 text-emerald-800" },
   served:    { label: "Served",    chip: "bg-stone-100 text-stone-600" },
+  paid:      { label: "Paid",      chip: "bg-teal-100 text-teal-800" },
   closed:    { label: "Closed",    chip: "bg-stone-100 text-stone-500" },
 }
 

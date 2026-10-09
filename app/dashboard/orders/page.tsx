@@ -4,7 +4,7 @@ import { Topbar } from "@/components/layout/topbar"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { Search, Clock, Loader2, RefreshCw, Banknote, CheckCircle2 } from "lucide-react"
+import { Search, Clock, Loader2, RefreshCw, Banknote, CheckCircle2, Bell } from "lucide-react"
 import { ordersAPI } from "@/lib/api/orders"
 import { paymentsAPI, Payment } from "@/lib/api/payments"
 import { useBranch } from "@/hooks/useBranch"
@@ -19,7 +19,7 @@ const statusStyles: Record<string, string> = Object.fromEntries(
   Object.entries(ORDER_STATUS).map(([k, v]) => [k, v.chip])
 )
 
-const statusOrder = ["pending", "accepted", "preparing", "ready", "served", "closed"]
+const statusOrder = ["pending", "accepted", "preparing", "ready", "served", "paid", "closed"]
 
 const actionLabel: Record<string, string> = {
   pending: "Accept Order",
@@ -255,7 +255,7 @@ useEffect(() => {
   return (
     <div className="flex flex-col flex-1 bg-cream">
       <Topbar title="Orders" />
-      <div className="p-6 space-y-5">
+      <div className="mx-auto w-full max-w-5xl space-y-5 p-4 md:p-6">
 
         {/* Toolbar */}
         <div className="flex items-center gap-4">
@@ -270,21 +270,22 @@ useEffect(() => {
           </div>
           <button
             onClick={fetchOrders}
-            className="p-2.5 rounded-xl bg-white border border-cream-border hover:bg-zinc-50 transition-colors"
+            className="flex size-11 items-center justify-center rounded-xl bg-white border border-cream-border hover:bg-zinc-50 transition-colors"
             title="Refresh"
+            aria-label="Refresh orders"
           >
             <RefreshCw className="w-4 h-4 text-zinc-500" />
           </button>
           {newCount > 0 && (
-            <div className="flex items-center gap-2 bg-brand-ink text-white text-sm font-semibold px-4 py-2 rounded-xl animate-pulse">
-              🔔 {newCount} new {newCount === 1 ? "order" : "orders"}
+            <div className="flex items-center gap-2 bg-brand-ink text-white text-sm font-semibold px-4 py-2 rounded-xl motion-safe:animate-pulse">
+              <Bell className="w-4 h-4" aria-hidden /> {newCount} new {newCount === 1 ? "order" : "orders"}
             </div>
           )}
         </div>
 
         {/* Status Filter */}
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {["all", ...statusOrder.slice(0, 5)].map((s) => (
+          {["all", ...statusOrder.slice(0, 6)].map((s) => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
@@ -295,12 +296,10 @@ useEffect(() => {
                   : "bg-white border border-cream-border text-zinc-600 hover:bg-zinc-50"
               )}
             >
-              {s === "all" ? "All Orders" : s}
-              {s !== "all" && (
-                <span className="ml-1.5 text-xs opacity-60">
-                  {orders.filter((o) => o.status === s).length}
-                </span>
-              )}
+              {s === "all" ? "All orders" : s}
+              <span className="ml-1.5 text-xs opacity-60">
+                {s === "all" ? orders.length : orders.filter((o) => o.status === s).length}
+              </span>
             </button>
           ))}
         </div>
@@ -450,7 +449,7 @@ useEffect(() => {
                       )}>
                         {order.status}
                       </span>
-                      {order.status !== "closed" && order.status !== "served" && (
+                      {actionLabel[order.status] && order.status !== "served" && (
                         <button
                           onClick={() => advance(order.id, order.status)}
                           disabled={advancing === order.id}
