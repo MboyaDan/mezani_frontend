@@ -1,11 +1,16 @@
 "use client"
 import { useEffect, useRef, useCallback, useState } from "react"
+import { getBranchSocketUrl, reconnectDelayMs } from "@/lib/api/ws"
 
 /**
- * Connects to the branch-scoped WebSocket (same endpoint the kitchen
- * display uses — /ws/kitchen?branch_id=X carries all branch events, not
- * just kitchen ones, despite the path name) and forwards every parsed
- * message to onMessage. Reconnects automatically on drop.
+ * Connects to the branch-scoped WebSocket and forwards every parsed message to
+ * onMessage. Despite the /ws/kitchen path, the same socket carries all of a branch's
+ * live events (orders, payments), not just kitchen ones.
+ *
+ * Each connection attempt first exchanges the user's access token for a short-lived,
+ * single-use ticket (see lib/api/ws.ts); the server only issues one if the user's
+ * role and tenant are allowed to see that branch. Reconnects automatically on drop,
+ * with backoff, fetching a fresh ticket every time.
  *
  * onMessage is stored in a ref so passing an inline arrow function from
  * the caller doesn't retrigger a reconnect on every render.
@@ -19,10 +24,13 @@ export function useBranchWebSocket(
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMounted = useRef(false)
+  const genRef = useRef(0)
+  const attemptsRef = useRef(0)
   const onMessageRef = useRef(onMessage)
   onMessageRef.current = onMessage
 
   const teardown = useCallback(() => {
+    genRef.current++
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current)
       reconnectTimer.current = null
@@ -43,7 +51,7 @@ export function useBranchWebSocket(
     setConnected(false)
   }, [])
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!branchId) return
 
     if (
@@ -54,8 +62,25 @@ export function useBranchWebSocket(
       return
     }
 
-    const base = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8080/ws/kitchen"
-    const wsUrl = `${base}?branch_id=${branchId}`
+    // Each attempt gets a generation number. teardown() and newer attempts bump it,
+    // so a slow ticket request can never open a socket for a stale branch or after
+    // unmount (also covers React Strict Mode's double effect).
+    const gen = ++genRef.current
+
+    let wsUrl: string
+    try {
+      wsUrl = await getBranchSocketUrl(branchId)
+    } catch {
+      // Not signed in, forbidden for this branch, or the server is unreachable.
+      if (gen === genRef.current && isMounted.current) {
+        reconnectTimer.current = setTimeout(() => {
+          if (isMounted.current) connect()
+        }, reconnectDelayMs(attemptsRef.current++))
+      }
+      return
+    }
+
+    if (gen !== genRef.current || !isMounted.current) return
 
     let ws: WebSocket
     try {
@@ -63,7 +88,7 @@ export function useBranchWebSocket(
     } catch {
       reconnectTimer.current = setTimeout(() => {
         if (isMounted.current) connect()
-      }, 3000)
+      }, reconnectDelayMs(attemptsRef.current++))
       return
     }
 
@@ -72,6 +97,7 @@ export function useBranchWebSocket(
     ws.onopen = () => {
       if (!isMounted.current) return
       setConnected(true)
+      attemptsRef.current = 0
       if (reconnectTimer.current) {
         clearTimeout(reconnectTimer.current)
         reconnectTimer.current = null
@@ -98,7 +124,7 @@ export function useBranchWebSocket(
       wsRef.current = null
       reconnectTimer.current = setTimeout(() => {
         if (isMounted.current) connect()
-      }, 3000)
+      }, reconnectDelayMs(attemptsRef.current++))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchId])
