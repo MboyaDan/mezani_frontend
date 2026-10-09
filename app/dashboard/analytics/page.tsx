@@ -1,294 +1,367 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Topbar } from "@/components/layout/topbar"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import {
-  BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts"
-import {
-  TrendingUp, ShoppingBag, Users, Star,
-  ArrowUpRight, Loader2, RefreshCw, AlertCircle,
-} from "lucide-react"
-import { analyticsAPI } from "@/lib/api/analytics"
-import { useBranch } from "@/hooks/useBranch"   
+import { RefreshCw, AlertCircle, TrendingUp, TrendingDown, Banknote, Smartphone, BarChart3 } from "lucide-react"
+import { analyticsAPI, AnalyticsRange } from "@/lib/api/analytics"
+import { useBranch } from "@/hooks/useBranch"
 import { BranchRequired } from "@/components/ui/branch-required"
 
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface PopularItem {
-  name: string
-  total_orders: number
-}
-
-interface PeakHour {
-  hour: number
-  total_orders: number
-}
+interface PopularItem { name: string; sold: number; revenue: number }
+interface HourBucket { hour: number; orders: number }
+interface PaymentMethod { method: string; total: number; count: number }
 
 interface DashboardData {
-  daily_sales: number | null
-  popular_items: PopularItem[]
-  peak_hours: PeakHour[]
-  returning_customers: number
+  sales: { total: number; orders: number; avgOrderValue: number; previousTotal: number; previousOrders: number }
+  popularItems: PopularItem[]
+  hours: HourBucket[]
+  payments: PaymentMethod[]
 }
 
+const RANGES: { key: AnalyticsRange; label: string; vs: string }[] = [
+  { key: "today", label: "Today",   vs: "yesterday" },
+  { key: "7d",    label: "7 days",  vs: "the previous 7 days" },
+  { key: "30d",   label: "30 days", vs: "the previous 30 days" },
+]
+
+const kes = (n: number) => `KES ${Math.round(n).toLocaleString()}`
+const card = "rounded-2xl border border-cream-border bg-white"
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function normalize(res: any): DashboardData {
+  const s = res.sales ?? {}
+  return {
+    sales: {
+      total: Number(s.total) || 0,
+      orders: Number(s.orders) || 0,
+      avgOrderValue: Number(s.avg_order_value) || 0,
+      previousTotal: Number(s.previous_total) || 0,
+      previousOrders: Number(s.previous_orders) || 0,
+    },
+    popularItems: (res.popular_items ?? []).map((i: any) => ({
+      name: i.Name ?? i.name,
+      sold: Number(i.TotalSold ?? i.total_sold) || 0,
+      revenue: Number(i.Revenue ?? i.revenue) || 0,
+    })),
+    hours: (res.peak_hours ?? []).map((p: any) => ({
+      hour: Number(p.Hour ?? p.hour),
+      orders: Number(p.OrderCount ?? p.order_count) || 0,
+    })),
+    payments: (res.payments_by_method ?? []).map((p: any) => ({
+      method: p.Method ?? p.method,
+      total: Number(p.Total ?? p.total) || 0,
+      count: Number(p.PaymentCount ?? p.payment_count) || 0,
+    })),
+  }
+}
+
+/**
+ * Zero-fills the hours so the chart shows the shape of the whole trading day, not just
+ * the hours that happened to have an order. Always covers 06:00-22:00; widens only if
+ * orders fall outside that.
+ */
+function fillHours(buckets: HourBucket[]): HourBucket[] {
+  const byHour = new Map(buckets.map((b) => [b.hour, b.orders]))
+  const hoursWithData = buckets.filter((b) => b.orders > 0).map((b) => b.hour)
+  const start = Math.min(6, ...hoursWithData)
+  const end = Math.max(22, ...hoursWithData)
+  return Array.from({ length: end - start + 1 }, (_, i) => ({
+    hour: start + i,
+    orders: byHour.get(start + i) ?? 0,
+  }))
+}
+
+function Change({ current, previous, vs }: { current: number; previous: number; vs: string }) {
+  if (previous <= 0) {
+    return <p className="mt-2 text-xs text-charcoal/45">{current > 0 ? `No sales ${vs === "yesterday" ? "yesterday" : "in " + vs}` : "No sales yet"}</p>
+  }
+  const pct = Math.round(((current - previous) / previous) * 100)
+  const up = pct >= 0
+  const Icon = up ? TrendingUp : TrendingDown
+  return (
+    <p className={cn("mt-2 flex items-center gap-1 text-xs font-medium", up ? "text-emerald-700" : "text-red-600")}>
+      <Icon className="size-3.5" aria-hidden />
+      {up ? "+" : ""}{pct}% <span className="font-normal text-charcoal/45">vs {vs}</span>
+    </p>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function AnalyticsPage() {
-  const { branchId } = useBranch()              // ← add this
+  const { branchId } = useBranch()
+  const [range, setRange] = useState<AnalyticsRange>("7d")
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
 
   const fetchAnalytics = useCallback(async () => {
-    if (!branchId) return                        // ← guard like dashboard page
+    if (!branchId) return
+    setRefreshing(true)
     try {
       setError(null)
-      const res = await analyticsAPI.dashboard(branchId)  // ← pass branchId
-      const normalized: DashboardData = {
-        ...res,
-        peak_hours: (res.peak_hours ?? []).map((p: any) => ({
-          hour: p.Hour ?? p.hour,
-          total_orders: p.OrderCount ?? p.order_count ?? p.total_orders,
-        })),
-        popular_items: (res.popular_items ?? []).map((item: any) => ({
-          name: item.Name ?? item.name,
-          total_orders: item.TotalSold ?? item.total_sold ?? item.total_orders,
-        })),
-      }
-      setData(normalized)
+      setData(normalize(await analyticsAPI.dashboard(branchId, range)))
+      setUpdatedAt(new Date())
     } catch (err: any) {
       setError(err.response?.data?.error ?? "Failed to load analytics")
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
-  }, [branchId])                            
+  }, [branchId, range])
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [fetchAnalytics])
+  useEffect(() => { fetchAnalytics() }, [fetchAnalytics])
 
-  // Now uses clean normalized keys — no any casting needed
-  const peakHoursData = (data?.peak_hours ?? []).map((p) => ({
-    hour: `${p.hour}:00`,
-    orders: Number(p.total_orders) || 0,
-  }))
+  const hours = useMemo(() => fillHours(data?.hours ?? []), [data])
+  const peak = useMemo(
+    () => hours.reduce((best, h) => (h.orders > best.orders ? h : best), { hour: 0, orders: 0 }),
+    [hours]
+  )
 
-  const popularItems = data?.popular_items ?? []
-  const maxOrders = popularItems[0]?.total_orders ?? 1
+  if (!branchId) return <BranchRequired />
 
-  const stats = [
-    {
-      title: "Today's Sales",
-      value: data?.daily_sales != null
-        ? `KES ${Number(data.daily_sales).toLocaleString()}`
-        : "—",
-      change: "Today",
-      icon: TrendingUp,
-      color: "text-brand-ink",
-      bg: "bg-brand/10",
-    },
-    {
-      title: "Popular Items",
-      value: popularItems.length > 0 ? String(popularItems.length) : "—",
-      change: "Tracked",
-      icon: ShoppingBag,
-      color: "text-charcoal",
-      bg: "bg-charcoal/5",
-    },
-    {
-      title: "Returning Customers",
-      value: data?.returning_customers != null
-        ? String(data.returning_customers)
-        : "—",
-      change: "All time",
-      icon: Users,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
-    },
-    {
-      title: "Best Seller",
-      value: popularItems[0]?.name ?? "—",
-      change: popularItems[0]
-        ? `${popularItems[0].total_orders} orders`
-        : "No data",
-      icon: Star,
-      color: "text-brand-ink",
-      bg: "bg-brand/10",
-    },
-  ]
-  if(!branchId) return <BranchRequired />
+  const rangeInfo = RANGES.find((r) => r.key === range)!
+  const topItems = data?.popularItems ?? []
+  const topSold = topItems[0]?.sold ?? 0
+  const payments = data?.payments ?? []
+  const paymentsTotal = payments.reduce((s, p) => s + p.total, 0)
+  const noOrders = !!data && data.sales.orders === 0 && data.hours.length === 0
 
   return (
-    <div className="flex flex-col flex-1 bg-cream">
+    <div className="flex flex-1 flex-col">
       <Topbar title="Analytics" />
-      <div className="p-6 space-y-5">
+      <div className="mx-auto w-full max-w-7xl space-y-6 p-4 md:p-6">
 
-        {/* Toolbar */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-zinc-500">Live data from your restaurant</p>
-          <button
-            onClick={fetchAnalytics}
-            className="p-2.5 rounded-xl bg-white border border-cream-border hover:bg-zinc-50 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4 text-zinc-500" />
-          </button>
+        {/* Toolbar: range + refresh */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div role="group" aria-label="Time range" className="inline-flex rounded-xl border border-cream-border bg-white p-1">
+            {RANGES.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => setRange(r.key)}
+                aria-pressed={range === r.key}
+                className={cn(
+                  "h-9 rounded-lg px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-brand",
+                  range === r.key ? "bg-charcoal text-cream" : "text-charcoal/60 hover:text-charcoal"
+                )}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            {updatedAt && (
+              <span className="text-xs text-charcoal/45">
+                Updated {updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
+            <button
+              onClick={fetchAnalytics}
+              disabled={refreshing}
+              aria-label="Refresh analytics"
+              className="flex size-11 items-center justify-center rounded-xl border border-cream-border bg-white text-charcoal/60 transition-colors hover:text-charcoal focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-60"
+            >
+              <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
+            </button>
+          </div>
         </div>
 
-        {/* Error */}
         {error && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-            <p className="text-sm text-red-600">{error}</p>
+          <div role="alert" className="flex items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <AlertCircle className="size-4 shrink-0 text-red-600" aria-hidden />
+            <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
-        {/* Loading */}
-        {loading && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-hidden>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className={cn(card, "p-5")}>
+                <div className="h-3 w-24 animate-pulse rounded bg-charcoal/10" />
+                <div className="mt-4 h-8 w-32 animate-pulse rounded bg-charcoal/10" />
+              </div>
+            ))}
           </div>
-        )}
+        ) : data && (
+          <div className={cn("space-y-6 transition-opacity", refreshing && "opacity-60")}>
 
-        {!loading && (
-          <>
-            {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {stats.map((stat) => {
-                const Icon = stat.icon
-                return (
-                  <Card
-                    key={stat.title}
-                    className="bg-white rounded-2xl border border-cream-border shadow-sm hover:shadow-md transition-all hover:scale-[1.01]"
-                  >
-                    <CardContent className="p-5">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm text-zinc-500">{stat.title}</p>
-                          <p className="text-xl font-bold text-zinc-900 mt-1 truncate max-w-[140px]">
-                            {stat.value}
-                          </p>
-                          <div className="flex items-center gap-1 mt-1">
-                            <ArrowUpRight className="w-3 h-3 text-emerald-500" />
-                            <span className="text-xs text-zinc-400">{stat.change}</span>
-                          </div>
-                        </div>
-                        <div className={cn("p-3 rounded-xl shrink-0", stat.bg)}>
-                          <Icon className={cn("w-5 h-5", stat.color)} />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+            {/* Headline numbers */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl bg-charcoal p-5 text-cream">
+                <p className="text-sm text-cream/60">Sales <span className="text-cream/40">· paid orders</span></p>
+                <p className="mt-3 truncate text-3xl font-semibold tracking-tight tabular-nums">{kes(data.sales.total)}</p>
+                {data.sales.previousTotal > 0 ? (
+                  (() => {
+                    const pct = Math.round(((data.sales.total - data.sales.previousTotal) / data.sales.previousTotal) * 100)
+                    const up = pct >= 0
+                    return (
+                      <p className={cn("mt-2 flex items-center gap-1 text-xs font-medium", up ? "text-emerald-300" : "text-red-300")}>
+                        {up ? <TrendingUp className="size-3.5" aria-hidden /> : <TrendingDown className="size-3.5" aria-hidden />}
+                        {up ? "+" : ""}{pct}% <span className="font-normal text-cream/45">vs {rangeInfo.vs}</span>
+                      </p>
+                    )
+                  })()
+                ) : (
+                  <p className="mt-2 text-xs text-cream/45">{data.sales.total > 0 ? `No sales ${range === "today" ? "yesterday" : "in " + rangeInfo.vs}` : "No sales yet"}</p>
+                )}
+              </div>
+
+              <div className={cn(card, "p-5")}>
+                <p className="text-sm text-charcoal/60">Orders</p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight tabular-nums text-charcoal">{data.sales.orders}</p>
+                <Change current={data.sales.orders} previous={data.sales.previousOrders} vs={rangeInfo.vs} />
+              </div>
+
+              <div className={cn(card, "p-5")}>
+                <p className="text-sm text-charcoal/60">Average order</p>
+                <p className="mt-3 truncate text-3xl font-semibold tracking-tight tabular-nums text-charcoal">
+                  {data.sales.orders > 0 ? kes(data.sales.avgOrderValue) : "—"}
+                </p>
+                <p className="mt-2 text-xs text-charcoal/45">Sales ÷ paid orders</p>
+              </div>
+
+              <div className={cn(card, "p-5")}>
+                <p className="text-sm text-charcoal/60">Best seller</p>
+                <p className="mt-3 truncate text-3xl font-semibold tracking-tight text-charcoal">{topItems[0]?.name ?? "—"}</p>
+                <p className="mt-2 text-xs text-charcoal/45">
+                  {topItems[0] ? `${topItems[0].sold} sold · ${kes(topItems[0].revenue)}` : "No sales yet"}
+                </p>
+              </div>
             </div>
 
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Peak Hours */}
-              <Card className="bg-white rounded-2xl border border-cream-border shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-semibold">Orders by Hour</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {peakHoursData.length === 0 ? (
-                    <div className="h-52 flex items-center justify-center">
-                      <p className="text-sm text-zinc-400">No data yet</p>
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={peakHoursData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" />
+            {noOrders && (
+              <div className={cn(card, "flex flex-col items-center px-6 py-14 text-center")}>
+                <span className="flex size-11 items-center justify-center rounded-xl bg-charcoal/5 text-charcoal/50">
+                  <BarChart3 className="size-5" aria-hidden />
+                </span>
+                <p className="mt-4 text-sm font-medium text-charcoal">No completed orders in this period</p>
+                <p className="mt-1 max-w-sm text-sm text-charcoal/55">
+                  Charts fill in as orders are served and paid. Try a longer range.
+                </p>
+              </div>
+            )}
+
+            {!noOrders && (
+              <div className="grid gap-4 lg:grid-cols-5">
+                {/* Orders by hour */}
+                <section aria-labelledby="by-hour" className={cn(card, "p-5 lg:col-span-3")}>
+                  <h2 id="by-hour" className="text-base font-semibold text-charcoal">Orders by hour</h2>
+                  <p className="mt-1 text-sm text-charcoal/55">
+                    {peak.orders > 0
+                      ? `Busiest at ${String(peak.hour).padStart(2, "0")}:00 with ${peak.orders} ${peak.orders === 1 ? "order" : "orders"}. `
+                      : ""}
+                    Nairobi time.
+                  </p>
+                  <div className="mt-4" role="img" aria-label={peak.orders > 0 ? `Orders by hour. Busiest hour ${peak.hour}:00 with ${peak.orders} orders.` : "Orders by hour"}>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <BarChart data={hours} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2DACA" />
                         <XAxis
                           dataKey="hour"
-                          tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                          tickFormatter={(h) => String(h).padStart(2, "0")}
+                          tick={{ fontSize: 11, fill: "#1E252999" }}
                           axisLine={false}
                           tickLine={false}
+                          interval={1}
                         />
                         <YAxis
-                          tick={{ fontSize: 12, fill: "#a1a1aa" }}
+                          allowDecimals={false}
+                          tick={{ fontSize: 11, fill: "#1E252999" }}
                           axisLine={false}
                           tickLine={false}
                         />
                         <Tooltip
-                          contentStyle={{ borderRadius: "12px", border: "1px solid #f4f4f5", fontSize: 12 }}
-                          formatter={(value): [string, string] => [String(value), "orders"]}
+                          cursor={{ fill: "#1E252908" }}
+                          formatter={(v) => [`${v} ${Number(v) === 1 ? "order" : "orders"}`, ""]}
+                          labelFormatter={(h) => `${String(h).padStart(2, "0")}:00 to ${String((Number(h) + 1) % 24).padStart(2, "0")}:00`}
+                          contentStyle={{ borderRadius: 12, border: "1px solid #E2DACA", fontSize: 12 }}
                         />
-                        <Bar dataKey="orders" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="orders" radius={[4, 4, 0, 0]} maxBarSize={28}>
+                          {hours.map((h) => (
+                            <Cell key={h.hour} fill={h.orders > 0 && h.hour === peak.hour ? "#B14A0C" : "#D9611B"} />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Customer Insights */}
-              <Card className="bg-white rounded-2xl border border-cream-border shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-semibold">Customer Insights</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4 pt-2">
-                    <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl">
-                      <div>
-                        <p className="text-sm font-medium text-zinc-700">Returning Customers</p>
-                        <p className="text-xs text-zinc-400 mt-0.5">Customers with 2+ visits</p>
-                      </div>
-                      <p className="text-2xl font-bold text-zinc-900">
-                        {data?.returning_customers ?? 0}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl">
-                      <div>
-                        <p className="text-sm font-medium text-zinc-700">Menu Items Tracked</p>
-                        <p className="text-xs text-zinc-400 mt-0.5">Items with order history</p>
-                      </div>
-                      <p className="text-2xl font-bold text-zinc-900">
-                        {popularItems.length}
-                      </p>
-                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                </section>
 
-            {/* Top Dishes */}
-            {popularItems.length > 0 && (
-              <Card className="bg-white rounded-2xl border border-cream-border shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-semibold">Top Dishes</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {popularItems.map((dish, i) => (
-                    <div key={`${dish.name}-${i}`} className="flex items-center gap-4">
-                      <span className="text-sm font-bold text-zinc-400 w-4">{i + 1}</span>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-sm font-medium text-zinc-900">{dish.name}</span>
-                          <span className="text-xs text-zinc-500">{dish.total_orders} orders</span>
+                {/* Payments by method */}
+                <section aria-labelledby="by-method" className={cn(card, "p-5 lg:col-span-2")}>
+                  <h2 id="by-method" className="text-base font-semibold text-charcoal">Payments by method</h2>
+                  <p className="mt-1 text-sm text-charcoal/55">Confirmed payments only.</p>
+                  {payments.length === 0 ? (
+                    <p className="py-10 text-center text-sm text-charcoal/45">No confirmed payments in this period.</p>
+                  ) : (
+                    <ul className="mt-5 space-y-5">
+                      {payments.map((p) => {
+                        const share = paymentsTotal > 0 ? (p.total / paymentsTotal) * 100 : 0
+                        const Icon = p.method === "mpesa" ? Smartphone : Banknote
+                        return (
+                          <li key={p.method}>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="flex items-center gap-2 text-sm font-medium text-charcoal">
+                                <Icon className="size-4 text-charcoal/50" aria-hidden />
+                                {p.method === "mpesa" ? "M-Pesa" : p.method === "cash" ? "Cash" : p.method}
+                              </span>
+                              <span className="text-sm font-semibold tabular-nums text-charcoal">{kes(p.total)}</span>
+                            </div>
+                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-charcoal/8">
+                              <div className="h-full rounded-full bg-brand" style={{ width: `${share}%` }} />
+                            </div>
+                            <p className="mt-1.5 text-xs text-charcoal/45">
+                              {p.count} {p.count === 1 ? "payment" : "payments"} · {Math.round(share)}%
+                            </p>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </section>
+              </div>
+            )}
+
+            {/* Top dishes */}
+            {topItems.length > 0 && (
+              <section aria-labelledby="top-dishes" className={cn(card, "p-5")}>
+                <h2 id="top-dishes" className="text-base font-semibold text-charcoal">Top dishes</h2>
+                <ol className="mt-5 space-y-5">
+                  {topItems.map((dish, i) => (
+                    <li key={`${i}-${dish.name}`} className="flex items-center gap-4">
+                      <span className="w-4 text-sm font-semibold tabular-nums text-charcoal/35">{i + 1}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                          <span className="truncate text-sm font-medium text-charcoal">{dish.name}</span>
+                          <span className="shrink-0 text-xs tabular-nums text-charcoal/55">
+                            {dish.sold} sold · <span className="font-semibold text-charcoal">{kes(dish.revenue)}</span>
+                          </span>
                         </div>
-                        <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-charcoal/8">
                           <div
-                            className="h-full bg-brand rounded-full transition-all"
-                            style={{ width: `${(Number(dish.total_orders) / Number(maxOrders)) * 100}%` }}
+                            className="h-full rounded-full bg-brand"
+                            style={{ width: `${topSold > 0 ? Math.max(4, (dish.sold / topSold) * 100) : 0}%` }}
                           />
                         </div>
                       </div>
-                    </div>
+                    </li>
                   ))}
-                </CardContent>
-              </Card>
+                </ol>
+              </section>
             )}
 
-            {/* Empty state */}
-            {popularItems.length === 0 && peakHoursData.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <TrendingUp className="w-10 h-10 text-zinc-200 mb-3" />
-                <p className="text-sm text-zinc-400 font-medium">No analytics data yet</p>
-                <p className="text-xs text-zinc-300 mt-1">
-                  Data will appear here as customers place orders
-                </p>
-              </div>
-            )}
-          </>
+            <p className="text-xs leading-relaxed text-charcoal/45">
+              Sales count paid orders. Orders by hour and top dishes count served and paid orders. Dish revenue uses
+              each dish&apos;s current menu price.
+            </p>
+          </div>
         )}
       </div>
     </div>

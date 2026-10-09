@@ -40,7 +40,7 @@ export default function PrivacyPage() {
           <li><strong className="font-semibold text-charcoal">Account details:</strong> restaurant name, your email address and a password. Passwords are stored in hashed form, not as plain text.</li>
           <li><strong className="font-semibold text-charcoal">Staff accounts:</strong> the name, email address and role (for example waiter, kitchen or cashier) of people you add.</li>
           <li><strong className="font-semibold text-charcoal">Restaurant data:</strong> branches, tables, menu items, stock levels, orders, order status and sales figures.</li>
-          <li><strong className="font-semibold text-charcoal">Payment records:</strong> for each bill, the method used (cash, M-Pesa or card), the amount, the status and any M-Pesa receipt reference your cashier records. We never see or store card numbers or M-Pesa PINs.</li>
+          <li><strong className="font-semibold text-charcoal">Payment records:</strong> for each bill, the method used (cash or M-Pesa), the amount, the status and any M-Pesa receipt reference your cashier records. We never see or store card numbers or M-Pesa PINs.</li>
           <li><strong className="font-semibold text-charcoal">Guest ordering:</strong> what a guest orders and which table it is for. Guests do not need to create an account or install an app.</li>
           <li><strong className="font-semibold text-charcoal">Mezzani AI:</strong> the questions you type and the branch data needed to answer them.</li>
           <li><strong className="font-semibold text-charcoal">Technical data:</strong> IP address, browser and device type and basic usage logs, which we use to keep the service secure and working.</li>

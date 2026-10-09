@@ -3,6 +3,7 @@
 import { useUser } from "@/hooks/useUser"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Menu } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { useSidebar } from "@/components/layout/sidebar-context"
 
 interface TopbarProps {
@@ -21,7 +22,12 @@ export function Topbar({ title }: TopbarProps) {
   const { open } = useSidebar()
 
   const initials = loading ? "" : initialsFrom(user?.name, user?.email, user?.tname, user?.role)
+  // Sign-up only asks for the restaurant name, so an owner's account name can be the
+  // literal role ("Owner"), which made the corner read "Owner / Owner". In that case
+  // show the email as the secondary line instead of repeating the role.
+  const nameIsRole = !!user?.name && user.name.trim().toLowerCase() === (user.role ?? "").toLowerCase()
   const displayName = user?.name || user?.email
+  const secondary = nameIsRole ? user?.email : user?.role
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-3 border-b border-cream-border bg-white px-4 md:px-6">
@@ -39,7 +45,9 @@ export function Topbar({ title }: TopbarProps) {
       <div className="flex items-center gap-3">
         <div className="hidden text-right leading-tight sm:block">
           {displayName && <p className="max-w-48 truncate text-sm font-medium text-charcoal">{displayName}</p>}
-          {user?.role && <p className="text-xs capitalize text-charcoal/50">{user.role}</p>}
+          {secondary && (
+            <p className={cn("max-w-48 truncate text-xs text-charcoal/50", !nameIsRole && "capitalize")}>{secondary}</p>
+          )}
         </div>
         <Avatar className="size-9">
           <AvatarFallback className="bg-charcoal text-xs font-medium text-cream">

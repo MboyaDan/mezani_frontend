@@ -120,9 +120,9 @@ export default function DashboardPage() {
                 { title: "Orders today", value: ordersToday, note: "Placed since midnight" },
                 { title: "Active tables", value: activeTables, note: "Sessions open right now" },
                 {
-                  title: "Best seller",
+                  title: "Best seller (30 days)",
                   value: popular[0]?.name ?? "—",
-                  note: popular[0] ? `${popular[0].total_sold ?? popular[0].total_orders} sold` : "No sales yet",
+                  note: popular[0] ? `${popular[0].total_sold ?? popular[0].total_orders} sold in 30 days` : "No sales yet",
                 },
               ].map((s) => (
                 <div key={s.title} className={cn(card, "p-5")}>

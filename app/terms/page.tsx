@@ -45,12 +45,12 @@ export default function TermsPage() {
       <Section n={4} title="Payments between you and your guests">
         <p>
           Mezzani is <strong className={b}>not a payment processor, bank or money-transfer service</strong>. We do not
-          hold, process, settle or move the money your guests pay you. Your cashier records how a bill was settled (cash,
-          M-Pesa or card) and confirms it in Mezzani; the payment itself happens directly between your guest and your
+          hold, process, settle or move the money your guests pay you. Your cashier records how a bill was settled (cash
+          or M-Pesa) and confirms it in Mezzani; the payment itself happens directly between your guest and your
           business.
         </p>
         <p>
-          You are responsible for collecting payments, reconciling your cash, M-Pesa and card takings, issuing any
+          You are responsible for collecting payments, reconciling your cash and M-Pesa takings, issuing any
           receipts the law requires and meeting your own tax obligations. Mezzani&apos;s records are a tool to help you
           do this, not a replacement for your own accounts.
         </p>
