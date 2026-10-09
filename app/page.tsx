@@ -3,7 +3,7 @@ import Image from "next/image"
 import { Logo } from "@/components/brand/logo"
 import { SiteNav } from "@/components/site/site-nav"
 import { SiteFooter } from "@/components/site/site-footer"
-import { QrCode, Download, ArrowRight, Sparkles, Check, X, Smartphone, UtensilsCrossed, BellRing, Banknote, CreditCard } from "lucide-react"
+import { QrCode, Download, ArrowRight, Sparkles, Check, X, Smartphone, UtensilsCrossed, BellRing, Banknote } from "lucide-react"
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -475,7 +475,6 @@ function InTheRestaurant() {
 const payMethods = [
   { icon: Banknote, name: "Cash", desc: "Your cashier collects it, then confirms it in Mezzani." },
   { icon: Smartphone, name: "M-Pesa", desc: "Your guest pays you directly. The cashier records it against the bill." },
-  { icon: CreditCard, name: "Card", desc: "Taken the way you already take cards, then recorded against the bill." },
 ]
 
 function PaymentsSection() {
@@ -494,7 +493,7 @@ function PaymentsSection() {
             {[
               "A bill isn't marked paid until your cashier confirms it",
               "Every payment is recorded by method, amount and time",
-              "Cash, M-Pesa and card takings are easy to reconcile at close",
+              "Cash and M-Pesa takings are easy to reconcile at close",
             ].map((point) => (
               <li key={point} className="flex items-start gap-2.5 text-sm">
                 <Check className="mt-0.5 size-4 shrink-0 text-brand-ink" aria-hidden />
